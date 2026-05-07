@@ -13,9 +13,9 @@ from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
-from pipecat.services.google.llm import GoogleLLMService
+from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.services.deepgram.stt import DeepgramSTTService
-from pipecat.services.cartesia.tts import CartesiaTTSService
+from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
@@ -142,24 +142,22 @@ async def run_bot(webrtc_connection):
     context = LLMContext(tools=tools)
     pair = LLMContextAggregatorPair(context)
 
-    llm = GoogleLLMService(
-        api_key=os.environ["GOOGLE_API_KEY"],
-        system_instruction=SYSTEM_PROMPT,
-        settings=GoogleLLMService.Settings(
-            model="gemini-2.5-flash-lite",
+    llm = AnthropicLLMService(
+        api_key=os.environ["ANTHROPIC_API_KEY"],
+        settings=AnthropicLLMService.Settings(
+            model="claude-sonnet-4-5",
+            system_instruction=SYSTEM_PROMPT,
             max_tokens=512,
             temperature=0.7,
         ),
     )
 
-    # Kavitha (Tamil voice) — no language lock so sonic-3 handles
-    # Tamil script + English words (Tanglish) naturally
-    tts = CartesiaTTSService(
-        api_key=os.environ["CARTESIA_API_KEY"],
-        settings=CartesiaTTSService.Settings(
-            model="sonic-3",
-            voice=os.environ["CARTESIA_VOICE_ID"],
-            # No language restriction — let sonic-3 auto-handle Tamil/English mix
+    tts = ElevenLabsTTSService(
+        api_key=os.environ["ELEVENLABS_API_KEY"],
+        settings=ElevenLabsTTSService.Settings(
+            model="eleven_turbo_v2_5",
+            voice=os.environ["ELEVENLABS_VOICE_ID"],
+            language=Language.TA,
         ),
     )
 
