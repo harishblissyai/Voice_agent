@@ -134,7 +134,9 @@ async def run_bot(webrtc_connection):
             language=Language.EN,
             punctuate=True,
             interim_results=True,
-            endpointing=400,
+            endpointing=200,        # reduced from 400ms → faster response
+            utterance_end_ms=1000,  # fallback end-of-speech if endpointing misses it
+            smart_format=True,
         ),
     )
 
@@ -145,7 +147,7 @@ async def run_bot(webrtc_connection):
     llm = AnthropicLLMService(
         api_key=os.environ["ANTHROPIC_API_KEY"],
         settings=AnthropicLLMService.Settings(
-            model="claude-sonnet-4-5",
+            model="claude-haiku-4-5-20251001",
             system_instruction=SYSTEM_PROMPT,
             max_tokens=512,
             temperature=0.7,

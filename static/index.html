@@ -37,7 +37,7 @@
       position: relative;
       width: 200px;
       height: 200px;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
 
     .orb {
@@ -51,10 +51,10 @@
       transition: box-shadow 0.4s ease;
     }
 
-    .orb.idle      { animation: breathe 3.5s ease-in-out infinite; }
+    .orb.idle       { animation: breathe 3.5s ease-in-out infinite; }
     .orb.connecting { animation: pulse-ring 1s ease-out infinite; }
     .orb.listening  { animation: breathe 2s ease-in-out infinite; box-shadow: 0 0 60px rgba(100, 180, 255, 0.5); }
-    .orb.speaking   { animation: speak 0.4s ease-in-out infinite alternate; box-shadow: 0 0 90px rgba(200, 160, 80, 0.8); }
+    .orb.speaking   { animation: speak 0.35s ease-in-out infinite alternate; box-shadow: 0 0 90px rgba(200, 160, 80, 0.9); }
 
     @keyframes breathe {
       0%, 100% { transform: scale(1); }
@@ -67,16 +67,45 @@
     }
     @keyframes speak {
       from { transform: scale(1.0); }
-      to   { transform: scale(1.1); }
+      to   { transform: scale(1.12); }
+    }
+    @keyframes mic-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* Status area */
+    .status-wrap {
+      min-height: 3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 2rem;
     }
 
     .status {
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       color: #aaaacc;
-      min-height: 1.5em;
-      margin-bottom: 2.5rem;
       letter-spacing: 0.05em;
       text-align: center;
+    }
+
+    /* Mic-ready badge — shown only in listening state */
+    #mic-ready {
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: #64b4ff;
+      letter-spacing: 0.04em;
+    }
+    #mic-ready.visible { display: flex; }
+    #mic-ready .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #64b4ff;
+      animation: mic-pulse 1s ease-in-out infinite;
     }
 
     #control-btn {
@@ -142,9 +171,15 @@
     <div class="orb idle" id="orb"></div>
   </div>
 
-  <div class="status" id="status-text">Priya-விடம் பேச tap செய்யுங்கள்</div>
+  <div class="status-wrap">
+    <div class="status" id="status-text">Tap to call Priya</div>
+    <div id="mic-ready">
+      <span class="dot"></span>
+      <span>Mic active — speak now</span>
+    </div>
+  </div>
 
-  <button id="control-btn">Priya-வை அழைக்கவும்</button>
+  <button id="control-btn">Call Priya</button>
 
   <div class="controls-row">
     <button id="mic-btn" title="Toggle microphone">🎙️</button>
@@ -160,10 +195,10 @@
       SPEAKING:   'speaking',
     };
     const STATUS = {
-      [States.IDLE]:       'Priya-விடம் பேச tap செய்யுங்கள்',
-      [States.CONNECTING]: 'இணைக்கிறோம்...',
-      [States.LISTENING]:  'கேட்கிறேன்...',
-      [States.SPEAKING]:   'Priya பேசுகிறாள்',
+      [States.IDLE]:       'Tap to call Priya',
+      [States.CONNECTING]: 'Connecting...',
+      [States.LISTENING]:  'Listening',
+      [States.SPEAKING]:   'Priya is speaking...',
     };
 
     let state       = States.IDLE;
@@ -177,6 +212,7 @@
 
     const orb        = document.getElementById('orb');
     const statusEl   = document.getElementById('status-text');
+    const micReady   = document.getElementById('mic-ready');
     const controlBtn = document.getElementById('control-btn');
     const micBtn     = document.getElementById('mic-btn');
     const errorToast = document.getElementById('error-toast');
@@ -185,16 +221,20 @@
       state = s;
       orb.className = `orb ${s}`;
       statusEl.textContent = STATUS[s];
+
+      // Show "Mic active — speak now" badge only when listening
+      micReady.classList.toggle('visible', s === States.LISTENING);
+
       if (s === States.IDLE) {
-        controlBtn.textContent = 'Priya-வை அழைக்கவும்';
+        controlBtn.textContent = 'Call Priya';
         controlBtn.disabled = false;
         micBtn.classList.remove('visible');
       } else if (s === States.CONNECTING) {
-        controlBtn.textContent = 'இணைக்கிறோம்...';
+        controlBtn.textContent = 'Connecting...';
         controlBtn.disabled = true;
         micBtn.classList.remove('visible');
       } else {
-        controlBtn.textContent = 'அழைப்பை முடிக்கவும்';
+        controlBtn.textContent = 'End Call';
         controlBtn.disabled = false;
         micBtn.classList.add('visible');
       }
@@ -206,7 +246,7 @@
       setTimeout(() => errorToast.classList.remove('visible'), 5000);
     }
 
-    // Drive speaking/listening orb states using the bot audio analyser
+    // Drive speaking/listening orb states from bot audio level
     function startAudioLevelMonitor() {
       if (!analyser) return;
       const data = new Uint8Array(analyser.frequencyBinCount);
@@ -215,11 +255,12 @@
       function tick() {
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        if (avg > 5) {
+        if (avg > 4) {
           silenceFrames = 0;
           if (state !== States.SPEAKING) setState(States.SPEAKING);
         } else {
           silenceFrames++;
+          // ~330ms of silence (20 frames @ 60fps) before switching back
           if (silenceFrames > 20 && state === States.SPEAKING) setState(States.LISTENING);
         }
         rafId = requestAnimationFrame(tick);
@@ -236,9 +277,7 @@
     async function startCall() {
       setState(States.CONNECTING);
 
-      // Create AudioContext NOW while we are inside a user-gesture handler.
-      // Browsers block audio autoplay for async callbacks — creating the context
-      // here grants playback permission for the whole session.
+      // Create AudioContext during user gesture — grants autoplay permission for the session
       audioCtx = new AudioContext();
 
       try {
@@ -259,14 +298,14 @@
         if (evt.track.kind === 'audio') {
           const remoteStream = new MediaStream([evt.track]);
 
-          // <audio> element is the most reliable way to play remote WebRTC audio
+          // <audio> element — most reliable cross-browser playback for WebRTC audio
           const audioEl = document.createElement('audio');
           audioEl.autoplay = true;
           audioEl.srcObject = remoteStream;
           document.body.appendChild(audioEl);
           audioEl.play().catch(e => console.warn('audio play:', e));
 
-          // AudioContext for orb level-monitor animation only (not for playback)
+          // AudioContext used only for level monitoring (orb animation)
           audioCtx.resume().then(() => {
             const src = audioCtx.createMediaStreamSource(remoteStream);
             analyser = audioCtx.createAnalyser();
@@ -284,13 +323,13 @@
         } else if (pc.connectionState === 'failed') {
           cleanup();
         }
-        // Ignore 'disconnected' — aiortc briefly fires this on localhost; wait for 'failed'
+        // Ignore 'disconnected' — aiortc briefly fires this on localhost
       };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for all ICE candidates to be gathered before sending the offer
+      // Wait for all ICE candidates before sending offer
       await new Promise((resolve) => {
         if (pc.iceGatheringState === 'complete') {
           resolve();
@@ -298,7 +337,7 @@
           pc.addEventListener('icegatheringstatechange', () => {
             if (pc.iceGatheringState === 'complete') resolve();
           });
-          setTimeout(resolve, 4000); // safety timeout
+          setTimeout(resolve, 4000);
         }
       });
 
@@ -307,10 +346,7 @@
         const resp = await fetch('/offer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sdp: pc.localDescription.sdp,
-            type: pc.localDescription.type,
-          }),
+          body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }),
         });
         if (!resp.ok) throw new Error(`Server error ${resp.status}`);
         answer = await resp.json();
@@ -318,7 +354,7 @@
       } catch (err) {
         console.error('Offer failed:', err);
         cleanup();
-        showError('இணைக்க முடியவில்லை. மீண்டும் முயலவும்.');
+        showError('Could not connect. Please try again.');
         return;
       }
 
@@ -331,20 +367,10 @@
       }
     }
 
-    function endCall() {
-      cleanup();
-    }
-
     function cleanup() {
       stopAudioLevelMonitor();
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-        localStream = null;
-      }
-      if (pc) {
-        pc.close();
-        pc = null;
-      }
+      if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+      if (pc) { pc.close(); pc = null; }
       pcId = null;
       micMuted = false;
       micBtn.classList.remove('muted');
@@ -362,7 +388,7 @@
 
     controlBtn.addEventListener('click', () => {
       if (state === States.IDLE) startCall();
-      else if (state !== States.CONNECTING) endCall();
+      else if (state !== States.CONNECTING) cleanup();
     });
   </script>
 </body>
