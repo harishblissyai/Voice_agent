@@ -1,5 +1,5 @@
-# Pipecat with required service extras
-pipecat-ai[webrtc,deepgram,anthropic,elevenlabs]>=1.1.0
+# Pipecat with all service extras
+pipecat-ai[webrtc,deepgram,anthropic,elevenlabs,google,groq,cartesia]>=1.1.0
 
 # Web server
 fastapi>=0.115.0

@@ -1,14 +1,28 @@
 import asyncio
 import os
+import sys
+from collections import deque
 from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
+
+# ── Capture server logs into a ring buffer for the frontend ──────────────────
+server_logs: deque = deque(maxlen=200)
+
+def _log_sink(message):
+    record = message.record
+    level = record["level"].name
+    text  = record["message"]
+    name  = record["name"]
+    server_logs.append({"level": level, "text": f"[{name}] {text}"})
+
+logger.add(_log_sink, level="DEBUG", format="{message}")
 
 from pipecat.transports.smallwebrtc.request_handler import (
     SmallWebRTCPatchRequest,
@@ -21,6 +35,9 @@ from bot import run_bot
 load_dotenv()
 
 request_handler = SmallWebRTCRequestHandler()
+
+# In-memory transcript for testing UI (last 50 lines)
+transcript: deque = deque(maxlen=50)
 
 
 @asynccontextmanager
@@ -52,10 +69,13 @@ async def serve_index():
 @app.post("/offer")
 async def offer(request: Request):
     body = await request.json()
+    llm_provider = body.pop("llm", "gemini")
+    tts_provider = body.pop("tts", "elevenlabs")
+
     rtc_request = SmallWebRTCRequest.from_dict(body)
 
     async def bot_callback(connection):
-        asyncio.create_task(run_bot(connection))
+        asyncio.create_task(run_bot(connection, llm_provider=llm_provider, tts_provider=tts_provider, transcript=transcript))
 
     answer = await request_handler.handle_web_request(rtc_request, bot_callback)
     return answer
@@ -69,6 +89,15 @@ async def ice(request: Request):
     return {"status": "ok"}
 
 
+@app.get("/transcript")
+async def get_transcript():
+    return JSONResponse(list(transcript))
+
+
+@app.get("/logs")
+async def get_logs():
+    return JSONResponse(list(server_logs))
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "Blissy Restaurant Bot"}
@@ -78,7 +107,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "server:app",
         host=os.environ.get("HOST", "0.0.0.0"),
-        port=int(os.environ.get("PORT", 7860)),
+        port=int(os.environ.get("PORT", 8000)),
         reload=False,
         log_level="info",
     )

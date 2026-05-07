@@ -10,12 +10,24 @@
     body {
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      flex-direction: row;
+      align-items: flex-start;
       justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem 1rem 3rem;
       background: #0f0f1a;
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: #e8e8f0;
+    }
+
+    /* ── Left column (existing content) ─────────────────────────── */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 0 0 auto;
+      width: 480px;
+      max-width: 100%;
     }
 
     h1 {
@@ -29,20 +41,87 @@
     p.tagline {
       font-size: 0.85rem;
       color: #8888aa;
-      margin-bottom: 3.5rem;
+      margin-bottom: 2rem;
       letter-spacing: 0.05em;
     }
 
+    /* ── Model selector panel ───────────────────────────────────── */
+    .model-panel {
+      width: 100%;
+      background: #16162a;
+      border: 1px solid #2a2a44;
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1.8rem;
+    }
+
+    .model-panel h2 {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6666aa;
+      margin-bottom: 0.8rem;
+    }
+
+    .selector-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .selector-label {
+      font-size: 0.75rem;
+      color: #8888aa;
+      width: 2.8rem;
+      flex-shrink: 0;
+    }
+
+    .chip-group {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      border: 1px solid #3a3a5c;
+      background: transparent;
+      color: #9999bb;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: #c8a96e; color: #c8a96e; }
+    .chip.active {
+      background: #c8a96e22;
+      border-color: #c8a96e;
+      color: #c8a96e;
+      font-weight: 600;
+    }
+    .chip:disabled, .chip.active:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .active-badge {
+      font-size: 0.65rem;
+      color: #6666aa;
+      margin-top: 0.4rem;
+      letter-spacing: 0.04em;
+    }
+    .active-badge span { color: #c8a96e; }
+
+    /* ── Orb ─────────────────────────────────────────────────────── */
     .orb-wrapper {
       position: relative;
-      width: 200px;
-      height: 200px;
-      margin-bottom: 2rem;
+      width: 180px;
+      height: 180px;
+      margin-bottom: 1.5rem;
     }
 
     .orb {
-      width: 180px;
-      height: 180px;
+      width: 160px;
+      height: 160px;
       margin: 10px auto;
       border-radius: 50%;
       background: radial-gradient(circle at 38% 38%, #e8c87a, #b8860b 60%, #5a3e00);
@@ -74,14 +153,14 @@
       50%       { opacity: 0.4; }
     }
 
-    /* Status area */
+    /* ── Status ──────────────────────────────────────────────────── */
     .status-wrap {
       min-height: 3rem;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.4rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
 
     .status {
@@ -91,7 +170,6 @@
       text-align: center;
     }
 
-    /* Mic-ready badge — shown only in listening state */
     #mic-ready {
       display: none;
       align-items: center;
@@ -108,6 +186,7 @@
       animation: mic-pulse 1s ease-in-out infinite;
     }
 
+    /* ── Buttons ─────────────────────────────────────────────────── */
     #control-btn {
       padding: 0.8rem 2.8rem;
       border: none;
@@ -127,7 +206,7 @@
     .controls-row {
       display: flex;
       gap: 1rem;
-      margin-top: 1.8rem;
+      margin-top: 1.2rem;
       align-items: center;
     }
 
@@ -147,6 +226,72 @@
     #mic-btn.visible { display: flex; }
     #mic-btn.muted   { border-color: #ff6666; color: #ff6666; }
 
+    /* ── Collapsible panel (console, left col) ───────────────────── */
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #16162a;
+      border: 1px solid #2a2a44;
+      border-radius: 10px 10px 0 0;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .panel-header.collapsed { border-radius: 10px; }
+    .panel-header h3 { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #8888aa; }
+    .panel-header .chevron { font-size: 0.7rem; color: #555577; transition: transform 0.2s; }
+    .panel-header.collapsed .chevron { transform: rotate(-90deg); }
+
+    .panel-body {
+      background: #12121f;
+      border: 1px solid #2a2a44;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 0.7rem 0.9rem;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .panel-body.hidden { display: none; }
+
+    /* transcript lines */
+    .tx-line {
+      font-size: 0.78rem;
+      padding: 0.22rem 0;
+      border-bottom: 1px solid #1a1a2e;
+      line-height: 1.5;
+    }
+    .tx-line:last-child { border-bottom: none; }
+    .tx-line .role { font-weight: 700; margin-right: 0.5rem; }
+    .tx-line.system  .role { color: #555577; }
+    .tx-line.user    .role { color: #64b4ff; }
+    .tx-line.priya   .role { color: #c8a96e; }
+    .tx-line.booking .role { color: #66cc88; }
+    .tx-line .text  { color: #ccccdd; }
+
+    /* console lines */
+    .con-line {
+      font-size: 0.73rem;
+      font-family: monospace;
+      padding: 0.18rem 0;
+      border-bottom: 1px solid #1a1a2e;
+      color: #9999bb;
+      word-break: break-all;
+    }
+    .con-line:last-child { border-bottom: none; }
+    .con-line.error { color: #ff8888; }
+    .con-line.warn  { color: #ffcc66; }
+    .con-line.info  { color: #88aaff; }
+
+    /* ── Latency badge ───────────────────────────────────────────── */
+    #latency {
+      font-size: 0.7rem;
+      color: #555577;
+      margin-top: 0.4rem;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Error toast ─────────────────────────────────────────────── */
     #error-toast {
       position: fixed;
       bottom: 2rem; left: 50%;
@@ -159,30 +304,237 @@
       display: none;
       max-width: 90vw;
       text-align: center;
+      z-index: 100;
     }
     #error-toast.visible { display: block; }
+
+    /* ── Right column: transcript + server logs ─────────────────── */
+    .right-col {
+      flex: 0 0 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      position: sticky;
+      top: 2rem;
+      height: calc(100vh - 4rem);
+    }
+
+    .srv-log-panel {
+      background: #0d0d1c;
+      border: 1px solid #2a2a44;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .srv-log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 1rem;
+      background: #16162a;
+      border-bottom: 1px solid #2a2a44;
+      flex-shrink: 0;
+    }
+
+    .srv-log-header h3 {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8888aa;
+    }
+
+    .srv-log-header .log-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #444466;
+      transition: background 0.3s;
+    }
+    .srv-log-header .log-dot.active { background: #44cc88; animation: mic-pulse 1.5s ease-in-out infinite; }
+
+    .srv-log-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem 0.8rem;
+      font-family: monospace;
+      font-size: 0.7rem;
+      line-height: 1.55;
+    }
+
+    .srv-line {
+      padding: 0.15rem 0;
+      border-bottom: 1px solid #18182e;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .srv-line:last-child { border-bottom: none; }
+    .srv-line.DEBUG   { color: #555577; }
+    .srv-line.INFO    { color: #7799cc; }
+    .srv-line.SUCCESS { color: #55bb88; }
+    .srv-line.WARNING { color: #ddaa44; }
+    .srv-line.ERROR   { color: #ff7777; }
+    .srv-line.CRITICAL{ color: #ff4444; font-weight: 700; }
+
+    .srv-log-footer {
+      padding: 0.4rem 0.8rem;
+      background: #16162a;
+      border-top: 1px solid #2a2a44;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .srv-log-footer .clr-btn {
+      font-size: 0.65rem;
+      color: #555577;
+      background: none;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .srv-log-footer .clr-btn:hover { color: #9999bb; }
+    .srv-log-footer .log-count { font-size: 0.65rem; color: #444466; }
+
+    /* ── Transcript panel (right col) ───────────────────────────── */
+    .tx-panel {
+      background: #0d0d1c;
+      border: 1px solid #2a2a44;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .tx-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 1rem;
+      background: #16162a;
+      border-bottom: 1px solid #2a2a44;
+      flex-shrink: 0;
+    }
+
+    .tx-panel-header h3 {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8888aa;
+    }
+
+    .tx-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem 0.8rem;
+    }
+
+    /* responsive: stack columns below 900px */
+    @media (max-width: 900px) {
+      body { flex-direction: column; align-items: center; }
+      .left-col { width: 100%; max-width: 480px; }
+      .right-col { position: static; flex: none; width: 100%; max-width: 480px; max-height: 600px; }
+      .srv-log-panel { max-height: 280px; }
+      .tx-panel { max-height: 300px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Blissy Restaurant</h1>
-  <p class="tagline">Chennai's finest — Priya-விடம் table book செய்யுங்கள்</p>
 
-  <div class="orb-wrapper">
-    <div class="orb idle" id="orb"></div>
-  </div>
+  <!-- ── Left column ─────────────────────────────────────────────── -->
+  <div class="left-col">
+    <h1>Blissy Restaurant</h1>
+    <p class="tagline">Chennai's finest — Priya-விடம் table book செய்யுங்கள்</p>
 
-  <div class="status-wrap">
-    <div class="status" id="status-text">Tap to call Priya</div>
-    <div id="mic-ready">
-      <span class="dot"></span>
-      <span>Mic active — speak now</span>
+    <!-- Model Selector -->
+    <div class="model-panel">
+      <h2>Model Selector</h2>
+
+      <div class="selector-row">
+        <span class="selector-label">LLM</span>
+        <div class="chip-group" id="llm-chips">
+          <button class="chip active" data-llm="gemini">Gemini</button>
+          <button class="chip" data-llm="groq">Groq / Llama</button>
+          <button class="chip" data-llm="anthropic">Anthropic</button>
+        </div>
+      </div>
+
+      <div class="selector-row">
+        <span class="selector-label">TTS</span>
+        <div class="chip-group" id="tts-chips">
+          <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
+          <button class="chip" data-tts="cartesia">Cartesia</button>
+        </div>
+      </div>
+
+      <div class="active-badge" id="active-badge">
+        Active: <span id="badge-llm">Gemini</span> + <span id="badge-tts">ElevenLabs</span>
+      </div>
+    </div>
+
+    <!-- Orb -->
+    <div class="orb-wrapper">
+      <div class="orb idle" id="orb"></div>
+    </div>
+
+    <div class="status-wrap">
+      <div class="status" id="status-text">Tap to call Priya</div>
+      <div id="mic-ready">
+        <span class="dot"></span>
+        <span>Mic active — speak now</span>
+      </div>
+    </div>
+
+    <button id="control-btn">Call Priya</button>
+
+    <div class="controls-row">
+      <button id="mic-btn" title="Toggle microphone">🎙️</button>
+    </div>
+
+    <div id="latency"></div>
+
+    <!-- Console / errors panel -->
+    <div style="width:100%;margin-top:1.2rem;">
+      <div class="panel-header collapsed" id="con-header">
+        <h3>🖥 Console / Errors</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="panel-body hidden" id="con-body">
+        <div id="console-lines"><div class="con-line info">Console output will appear here.</div></div>
+      </div>
     </div>
   </div>
 
-  <button id="control-btn">Call Priya</button>
+  <!-- ── Right column: transcript + server logs ─────────────────── -->
+  <div class="right-col">
+    <!-- Conversation transcript -->
+    <div class="tx-panel">
+      <div class="tx-panel-header">
+        <h3>💬 Conversation</h3>
+      </div>
+      <div class="tx-panel-body" id="tx-body">
+        <div id="transcript-lines"><div class="tx-line system"><span class="role">⚙</span><span class="text">Start a call to see the conversation.</span></div></div>
+      </div>
+    </div>
 
-  <div class="controls-row">
-    <button id="mic-btn" title="Toggle microphone">🎙️</button>
+    <!-- Server logs -->
+    <div class="srv-log-panel">
+      <div class="srv-log-header">
+        <h3>🖧 Server Logs</h3>
+        <span class="log-dot" id="log-dot"></span>
+      </div>
+      <div class="srv-log-body" id="srv-log-body">
+        <div class="srv-line INFO">Waiting for server logs…</div>
+      </div>
+      <div class="srv-log-footer">
+        <button class="clr-btn" id="clr-btn">CLEAR</button>
+        <span class="log-count" id="log-count">0 entries</span>
+      </div>
+    </div>
   </div>
 
   <div id="error-toast"></div>
@@ -203,12 +555,18 @@
 
     let state       = States.IDLE;
     let pc          = null;
-    let pcId        = null;
     let localStream = null;
     let micMuted    = false;
     let audioCtx    = null;
     let analyser    = null;
     let rafId       = null;
+    let txPollId    = null;
+    let logPollId   = null;
+    let callStartTs = null;
+    let selectedLLM = 'gemini';
+    let selectedTTS = 'elevenlabs';
+    let lastLogCount = 0;
+    let logPinned   = false;  // true once user manually scrolls up
 
     const orb        = document.getElementById('orb');
     const statusEl   = document.getElementById('status-text');
@@ -216,27 +574,173 @@
     const controlBtn = document.getElementById('control-btn');
     const micBtn     = document.getElementById('mic-btn');
     const errorToast = document.getElementById('error-toast');
+    const latencyEl  = document.getElementById('latency');
+    const badgeLLM   = document.getElementById('badge-llm');
+    const badgeTTS   = document.getElementById('badge-tts');
+    const srvLogBody = document.getElementById('srv-log-body');
+    const logDot     = document.getElementById('log-dot');
+    const logCount   = document.getElementById('log-count');
 
+    // ── Chip selectors ──────────────────────────────────────────────
+    document.querySelectorAll('#llm-chips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state !== States.IDLE) return;
+        document.querySelectorAll('#llm-chips .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedLLM = btn.dataset.llm;
+        badgeLLM.textContent = btn.textContent;
+      });
+    });
+
+    document.querySelectorAll('#tts-chips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state !== States.IDLE) return;
+        document.querySelectorAll('#tts-chips .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedTTS = btn.dataset.tts;
+        badgeTTS.textContent = btn.textContent;
+      });
+    });
+
+    // ── Console capture ──────────────────────────────────────────────
+    const conLines = document.getElementById('console-lines');
+    const MAX_CON  = 60;
+
+    function addConLine(level, args) {
+      const text = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+      const div  = document.createElement('div');
+      div.className = `con-line ${level}`;
+      div.textContent = `[${level.toUpperCase()}] ${text}`;
+      conLines.appendChild(div);
+      while (conLines.children.length > MAX_CON) conLines.removeChild(conLines.firstChild);
+      document.getElementById('con-body').scrollTop = 9999;
+    }
+
+    ['log','info','warn','error'].forEach(level => {
+      const orig = console[level].bind(console);
+      console[level] = (...args) => { orig(...args); addConLine(level === 'log' ? 'info' : level, args); };
+    });
+    window.onerror = (msg, src, line, col, err) => {
+      addConLine('error', [`${msg} (${src}:${line}:${col})`]);
+    };
+    window.onunhandledrejection = (e) => {
+      addConLine('error', [`Unhandled promise: ${e.reason}`]);
+    };
+
+    // ── Collapsible panels ───────────────────────────────────────────
+    function setupPanel(headerId, bodyId) {
+      const hdr  = document.getElementById(headerId);
+      const body = document.getElementById(bodyId);
+      hdr.addEventListener('click', () => {
+        const collapsed = hdr.classList.toggle('collapsed');
+        body.classList.toggle('hidden', collapsed);
+      });
+    }
+    setupPanel('con-header', 'con-body');
+
+    // ── Transcript polling ───────────────────────────────────────────
+    const txLines = document.getElementById('transcript-lines');
+
+    function renderTranscript(lines) {
+      txLines.innerHTML = '';
+      lines.forEach(line => {
+        const div = document.createElement('div');
+        div.className = `tx-line ${line.role}`;
+        const roleLabel = { system: '⚙', user: '🎤 You', priya: '🤖 Priya', booking: '📋 Booking' }[line.role] || line.role;
+        div.innerHTML = `<span class="role">${roleLabel}</span><span class="text">${escHtml(line.text)}</span>`;
+        txLines.appendChild(div);
+      });
+      document.getElementById('tx-body').scrollTop = 9999;
+    }
+
+    async function pollTranscript() {
+      try {
+        const r = await fetch('/transcript');
+        if (r.ok) renderTranscript(await r.json());
+      } catch (_) {}
+      txPollId = setTimeout(pollTranscript, 1200);
+    }
+
+    function stopPollTranscript() {
+      clearTimeout(txPollId);
+      txPollId = null;
+    }
+
+    // ── Server log polling ───────────────────────────────────────────
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    srvLogBody.addEventListener('scroll', () => {
+      const atBottom = srvLogBody.scrollHeight - srvLogBody.scrollTop - srvLogBody.clientHeight < 30;
+      logPinned = !atBottom;
+    });
+
+    document.getElementById('clr-btn').addEventListener('click', () => {
+      srvLogBody.innerHTML = '';
+      lastLogCount = 0;
+      logCount.textContent = '0 entries';
+    });
+
+    async function pollLogs() {
+      try {
+        const r = await fetch('/logs');
+        if (r.ok) {
+          const logs = await r.json();
+          const newCount = logs.length;
+          if (newCount !== lastLogCount) {
+            const newEntries = logs.slice(lastLogCount);
+            newEntries.forEach(entry => {
+              const div = document.createElement('div');
+              const lvl = (entry.level || 'INFO').toUpperCase();
+              div.className = `srv-line ${lvl}`;
+              div.textContent = `[${lvl}] ${entry.text}`;
+              srvLogBody.appendChild(div);
+            });
+            // Remove oldest entries if too many
+            while (srvLogBody.children.length > 300) srvLogBody.removeChild(srvLogBody.firstChild);
+            lastLogCount = newCount;
+            logCount.textContent = `${srvLogBody.children.length} entries`;
+            if (!logPinned) srvLogBody.scrollTop = srvLogBody.scrollHeight;
+            logDot.classList.add('active');
+            setTimeout(() => logDot.classList.remove('active'), 800);
+          }
+        }
+      } catch (_) {}
+      logPollId = setTimeout(pollLogs, 1500);
+    }
+
+    function stopPollLogs() {
+      clearTimeout(logPollId);
+      logPollId = null;
+    }
+
+    // Start polling logs immediately
+    pollLogs();
+
+    // ── State machine ───────────────────────────────────────────────
     function setState(s) {
       state = s;
       orb.className = `orb ${s}`;
       statusEl.textContent = STATUS[s];
-
-      // Show "Mic active — speak now" badge only when listening
       micReady.classList.toggle('visible', s === States.LISTENING);
 
+      const allChips = document.querySelectorAll('.chip');
       if (s === States.IDLE) {
         controlBtn.textContent = 'Call Priya';
         controlBtn.disabled = false;
         micBtn.classList.remove('visible');
+        allChips.forEach(c => c.disabled = false);
       } else if (s === States.CONNECTING) {
         controlBtn.textContent = 'Connecting...';
         controlBtn.disabled = true;
         micBtn.classList.remove('visible');
+        allChips.forEach(c => c.disabled = true);
       } else {
         controlBtn.textContent = 'End Call';
         controlBtn.disabled = false;
         micBtn.classList.add('visible');
+        allChips.forEach(c => c.disabled = true);
       }
     }
 
@@ -246,12 +750,11 @@
       setTimeout(() => errorToast.classList.remove('visible'), 5000);
     }
 
-    // Drive speaking/listening orb states from bot audio level
+    // ── Audio level monitor (orb animation) ─────────────────────────
     function startAudioLevelMonitor() {
       if (!analyser) return;
       const data = new Uint8Array(analyser.frequencyBinCount);
       let silenceFrames = 0;
-
       function tick() {
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
@@ -260,7 +763,6 @@
           if (state !== States.SPEAKING) setState(States.SPEAKING);
         } else {
           silenceFrames++;
-          // ~330ms of silence (20 frames @ 60fps) before switching back
           if (silenceFrames > 20 && state === States.SPEAKING) setState(States.LISTENING);
         }
         rafId = requestAnimationFrame(tick);
@@ -274,10 +776,12 @@
       analyser = null;
     }
 
+    // ── WebRTC call ─────────────────────────────────────────────────
     async function startCall() {
       setState(States.CONNECTING);
+      callStartTs = Date.now();
+      latencyEl.textContent = '';
 
-      // Create AudioContext during user gesture — grants autoplay permission for the session
       audioCtx = new AudioContext();
 
       try {
@@ -288,24 +792,17 @@
         return;
       }
 
-      pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      });
-
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
       pc.ontrack = (evt) => {
         if (evt.track.kind === 'audio') {
           const remoteStream = new MediaStream([evt.track]);
-
-          // <audio> element — most reliable cross-browser playback for WebRTC audio
           const audioEl = document.createElement('audio');
           audioEl.autoplay = true;
           audioEl.srcObject = remoteStream;
           document.body.appendChild(audioEl);
           audioEl.play().catch(e => console.warn('audio play:', e));
-
-          // AudioContext used only for level monitoring (orb animation)
           audioCtx.resume().then(() => {
             const src = audioCtx.createMediaStreamSource(remoteStream);
             analyser = audioCtx.createAnalyser();
@@ -319,26 +816,24 @@
       pc.onconnectionstatechange = () => {
         console.log('WebRTC state:', pc.connectionState);
         if (pc.connectionState === 'connected') {
+          const elapsed = ((Date.now() - callStartTs) / 1000).toFixed(1);
+          latencyEl.textContent = `Connected in ${elapsed}s`;
           setState(States.LISTENING);
+          pollTranscript();
         } else if (pc.connectionState === 'failed') {
           cleanup();
         }
-        // Ignore 'disconnected' — aiortc briefly fires this on localhost
       };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for all ICE candidates before sending offer
       await new Promise((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          pc.addEventListener('icegatheringstatechange', () => {
-            if (pc.iceGatheringState === 'complete') resolve();
-          });
-          setTimeout(resolve, 4000);
-        }
+        if (pc.iceGatheringState === 'complete') { resolve(); return; }
+        pc.addEventListener('icegatheringstatechange', () => {
+          if (pc.iceGatheringState === 'complete') resolve();
+        });
+        setTimeout(resolve, 4000);
       });
 
       let answer;
@@ -346,11 +841,15 @@
         const resp = await fetch('/offer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }),
+          body: JSON.stringify({
+            sdp: pc.localDescription.sdp,
+            type: pc.localDescription.type,
+            llm: selectedLLM,
+            tts: selectedTTS,
+          }),
         });
         if (!resp.ok) throw new Error(`Server error ${resp.status}`);
         answer = await resp.json();
-        pcId = answer.pc_id || null;
       } catch (err) {
         console.error('Offer failed:', err);
         cleanup();
@@ -369,9 +868,9 @@
 
     function cleanup() {
       stopAudioLevelMonitor();
+      stopPollTranscript();
       if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
       if (pc) { pc.close(); pc = null; }
-      pcId = null;
       micMuted = false;
       micBtn.classList.remove('muted');
       micBtn.textContent = '🎙️';
