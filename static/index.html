@@ -257,14 +257,21 @@
 
       pc.ontrack = (evt) => {
         if (evt.track.kind === 'audio') {
-          // Resume AudioContext in case the browser suspended it during async await calls
+          const remoteStream = new MediaStream([evt.track]);
+
+          // <audio> element is the most reliable way to play remote WebRTC audio
+          const audioEl = document.createElement('audio');
+          audioEl.autoplay = true;
+          audioEl.srcObject = remoteStream;
+          document.body.appendChild(audioEl);
+          audioEl.play().catch(e => console.warn('audio play:', e));
+
+          // AudioContext for orb level-monitor animation only (not for playback)
           audioCtx.resume().then(() => {
-            const remoteStream = new MediaStream([evt.track]);
             const src = audioCtx.createMediaStreamSource(remoteStream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 256;
             src.connect(analyser);
-            src.connect(audioCtx.destination);
             startAudioLevelMonitor();
           });
         }
