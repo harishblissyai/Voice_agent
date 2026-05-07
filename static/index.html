@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blissy Restaurant — Reserve a Table</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0f0f1a;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e8e8f0;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.1em;
+      color: #c8a96e;
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+    }
+
+    p.tagline {
+      font-size: 0.85rem;
+      color: #8888aa;
+      margin-bottom: 3.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .orb-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin-bottom: 2.5rem;
+    }
+
+    .orb {
+      width: 180px;
+      height: 180px;
+      margin: 10px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 38%, #e8c87a, #b8860b 60%, #5a3e00);
+      box-shadow: 0 0 40px rgba(200, 160, 80, 0.3);
+      cursor: pointer;
+      transition: box-shadow 0.4s ease;
+    }
+
+    .orb.idle      { animation: breathe 3.5s ease-in-out infinite; }
+    .orb.connecting { animation: pulse-ring 1s ease-out infinite; }
+    .orb.listening  { animation: breathe 2s ease-in-out infinite; box-shadow: 0 0 60px rgba(100, 180, 255, 0.5); }
+    .orb.speaking   { animation: speak 0.4s ease-in-out infinite alternate; box-shadow: 0 0 90px rgba(200, 160, 80, 0.8); }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.07); }
+    }
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.94); box-shadow: 0 0 0 0 rgba(200,160,80,0.6); }
+      70%  { transform: scale(1);    box-shadow: 0 0 0 30px rgba(200,160,80,0); }
+      100% { transform: scale(0.94); box-shadow: 0 0 0 0 rgba(200,160,80,0); }
+    }
+    @keyframes speak {
+      from { transform: scale(1.0); }
+      to   { transform: scale(1.1); }
+    }
+
+    .status {
+      font-size: 0.9rem;
+      color: #aaaacc;
+      min-height: 1.5em;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    #control-btn {
+      padding: 0.8rem 2.8rem;
+      border: none;
+      border-radius: 50px;
+      background: #c8a96e;
+      color: #1a1000;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: background 0.2s, transform 0.15s;
+    }
+    #control-btn:hover:not(:disabled) { background: #e8c87a; transform: scale(1.03); }
+    #control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .controls-row {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.8rem;
+      align-items: center;
+    }
+
+    #mic-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 2px solid #c8a96e;
+      background: transparent;
+      color: #c8a96e;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #mic-btn.visible { display: flex; }
+    #mic-btn.muted   { border-color: #ff6666; color: #ff6666; }
+
+    #error-toast {
+      position: fixed;
+      bottom: 2rem; left: 50%;
+      transform: translateX(-50%);
+      background: #3a1010;
+      color: #ffaaaa;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      display: none;
+      max-width: 90vw;
+      text-align: center;
+    }
+    #error-toast.visible { display: block; }
+  </style>
+</head>
+<body>
+  <h1>Blissy Restaurant</h1>
+  <p class="tagline">Chennai's finest — Priya-விடம் table book செய்யுங்கள்</p>
+
+  <div class="orb-wrapper">
+    <div class="orb idle" id="orb"></div>
+  </div>
+
+  <div class="status" id="status-text">Priya-விடம் பேச tap செய்யுங்கள்</div>
+
+  <button id="control-btn">Priya-வை அழைக்கவும்</button>
+
+  <div class="controls-row">
+    <button id="mic-btn" title="Toggle microphone">🎙️</button>
+  </div>
+
+  <div id="error-toast"></div>
+
+  <script>
+    const States = {
+      IDLE:       'idle',
+      CONNECTING: 'connecting',
+      LISTENING:  'listening',
+      SPEAKING:   'speaking',
+    };
+    const STATUS = {
+      [States.IDLE]:       'Priya-விடம் பேச tap செய்யுங்கள்',
+      [States.CONNECTING]: 'இணைக்கிறோம்...',
+      [States.LISTENING]:  'கேட்கிறேன்...',
+      [States.SPEAKING]:   'Priya பேசுகிறாள்',
+    };
+
+    let state       = States.IDLE;
+    let pc          = null;
+    let pcId        = null;
+    let localStream = null;
+    let micMuted    = false;
+    let audioCtx    = null;
+    let analyser    = null;
+    let rafId       = null;
+
+    const orb        = document.getElementById('orb');
+    const statusEl   = document.getElementById('status-text');
+    const controlBtn = document.getElementById('control-btn');
+    const micBtn     = document.getElementById('mic-btn');
+    const errorToast = document.getElementById('error-toast');
+
+    function setState(s) {
+      state = s;
+      orb.className = `orb ${s}`;
+      statusEl.textContent = STATUS[s];
+      if (s === States.IDLE) {
+        controlBtn.textContent = 'Priya-வை அழைக்கவும்';
+        controlBtn.disabled = false;
+        micBtn.classList.remove('visible');
+      } else if (s === States.CONNECTING) {
+        controlBtn.textContent = 'இணைக்கிறோம்...';
+        controlBtn.disabled = true;
+        micBtn.classList.remove('visible');
+      } else {
+        controlBtn.textContent = 'அழைப்பை முடிக்கவும்';
+        controlBtn.disabled = false;
+        micBtn.classList.add('visible');
+      }
+    }
+
+    function showError(msg) {
+      errorToast.textContent = msg;
+      errorToast.classList.add('visible');
+      setTimeout(() => errorToast.classList.remove('visible'), 5000);
+    }
+
+    // Drive speaking/listening orb states using the bot audio analyser
+    function startAudioLevelMonitor() {
+      if (!analyser) return;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let silenceFrames = 0;
+
+      function tick() {
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        if (avg > 5) {
+          silenceFrames = 0;
+          if (state !== States.SPEAKING) setState(States.SPEAKING);
+        } else {
+          silenceFrames++;
+          if (silenceFrames > 20 && state === States.SPEAKING) setState(States.LISTENING);
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+      tick();
+    }
+
+    function stopAudioLevelMonitor() {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      analyser = null;
+    }
+
+    async function startCall() {
+      setState(States.CONNECTING);
+
+      // Create AudioContext NOW while we are inside a user-gesture handler.
+      // Browsers block audio autoplay for async callbacks — creating the context
+      // here grants playback permission for the whole session.
+      audioCtx = new AudioContext();
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (err) {
+        setState(States.IDLE);
+        showError('Microphone access denied. Please allow mic access and try again.');
+        return;
+      }
+
+      pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      pc.ontrack = (evt) => {
+        if (evt.track.kind === 'audio') {
+          // Resume AudioContext in case the browser suspended it during async await calls
+          audioCtx.resume().then(() => {
+            const remoteStream = new MediaStream([evt.track]);
+            const src = audioCtx.createMediaStreamSource(remoteStream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+            src.connect(audioCtx.destination);
+            startAudioLevelMonitor();
+          });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log('WebRTC state:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setState(States.LISTENING);
+        } else if (pc.connectionState === 'failed') {
+          cleanup();
+        }
+        // Ignore 'disconnected' — aiortc briefly fires this on localhost; wait for 'failed'
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Wait for all ICE candidates to be gathered before sending the offer
+      await new Promise((resolve) => {
+        if (pc.iceGatheringState === 'complete') {
+          resolve();
+        } else {
+          pc.addEventListener('icegatheringstatechange', () => {
+            if (pc.iceGatheringState === 'complete') resolve();
+          });
+          setTimeout(resolve, 4000); // safety timeout
+        }
+      });
+
+      let answer;
+      try {
+        const resp = await fetch('/offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sdp: pc.localDescription.sdp,
+            type: pc.localDescription.type,
+          }),
+        });
+        if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+        answer = await resp.json();
+        pcId = answer.pc_id || null;
+      } catch (err) {
+        console.error('Offer failed:', err);
+        cleanup();
+        showError('இணைக்க முடியவில்லை. மீண்டும் முயலவும்.');
+        return;
+      }
+
+      try {
+        await pc.setRemoteDescription({ sdp: answer.sdp, type: answer.type });
+      } catch (err) {
+        console.error('setRemoteDescription failed:', err);
+        cleanup();
+        showError('WebRTC negotiation failed. Please try again.');
+      }
+    }
+
+    function endCall() {
+      cleanup();
+    }
+
+    function cleanup() {
+      stopAudioLevelMonitor();
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+      pcId = null;
+      micMuted = false;
+      micBtn.classList.remove('muted');
+      micBtn.textContent = '🎙️';
+      setState(States.IDLE);
+    }
+
+    micBtn.addEventListener('click', () => {
+      if (!localStream) return;
+      micMuted = !micMuted;
+      localStream.getAudioTracks().forEach(t => { t.enabled = !micMuted; });
+      micBtn.classList.toggle('muted', micMuted);
+      micBtn.textContent = micMuted ? '🔇' : '🎙️';
+    });
+
+    controlBtn.addEventListener('click', () => {
+      if (state === States.IDLE) startCall();
+      else if (state !== States.CONNECTING) endCall();
+    });
+  </script>
+</body>
+</html>

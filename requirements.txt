@@ -1,0 +1,15 @@
+# Pipecat with required service extras
+pipecat-ai[webrtc,deepgram,cartesia,google]>=1.1.0
+
+# Web server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# HTTP client (n8n webhook)
+aiohttp>=3.9.0
+
+# Env vars
+python-dotenv>=1.0.0
+
+# Static file serving
+aiofiles>=23.0.0
