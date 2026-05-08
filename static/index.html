@@ -373,7 +373,7 @@
   </div>
   <div class="hdr-badges">
     <span class="prov-badge stt" id="hdr-stt">Sarvam</span>
-    <span class="prov-badge llm" id="hdr-llm">Gemini</span>
+    <span class="prov-badge llm" id="hdr-llm">Groq</span>
     <span class="prov-badge tts" id="hdr-tts">ElevenLabs</span>
   </div>
 </header>
@@ -389,16 +389,16 @@
         <span class="sel-lbl">STT</span>
         <div class="chips" id="stt-chips">
           <button class="chip active" data-stt="sarvam">Sarvam</button>
-          <button class="chip" data-stt="deepgram">Deepgram</button>
           <button class="chip" data-stt="elevenlabs">ElevenLabs</button>
         </div>
       </div>
       <div class="sel-row">
         <span class="sel-lbl">LLM</span>
         <div class="chips" id="llm-chips">
-          <button class="chip active" data-llm="gemini">Gemini</button>
-          <button class="chip" data-llm="groq">Groq</button>
-          <button class="chip" data-llm="anthropic">Anthropic</button>
+          <button class="chip active" data-llm="groq">Groq</button>
+          <button class="chip" data-llm="anthropic">Haiku</button>
+          <button class="chip" data-llm="opus">Opus</button>
+          <button class="chip" data-llm="openai">OpenAI</button>
         </div>
       </div>
       <div class="sel-row">
@@ -583,9 +583,10 @@
       elevenlabs: { name:'ElevenLabs',   model:'scribe_v2 · ta · Silero VAD' },
     },
     llm: {
-      gemini:    { name:'Google Gemini', model:'gemini-2.0-flash-lite' },
       groq:      { name:'Groq / Meta',   model:'llama-3.3-70b-versatile' },
-      anthropic: { name:'Anthropic',     model:'claude-opus-4-7' },
+      anthropic: { name:'Claude Haiku',  model:'claude-haiku-4-5' },
+      opus:      { name:'Claude Opus',   model:'claude-opus-4-7' },
+      openai:    { name:'OpenAI',        model:'gpt-4o-mini' },
     },
     tts: {
       elevenlabs: { name:'ElevenLabs',  model:'eleven_turbo_v2_5 · dual-voice' },
@@ -599,7 +600,7 @@
   let audioCtx = null, remoteAna = null, localAna = null;
   let rafId = null, animFrame = null, txPollId = null, logPollId = null;
   let timerInterval = null, callStartTs = null, turnCount = 0;
-  let selectedSTT = 'sarvam', selectedLLM = 'gemini', selectedTTS = 'elevenlabs';
+  let selectedSTT = 'sarvam', selectedLLM = 'groq', selectedTTS = 'elevenlabs';
   let lastLogCount = 0, logPinned = false, logFilter = 'all';
 
   const orbWrap   = document.getElementById('orb-wrap');

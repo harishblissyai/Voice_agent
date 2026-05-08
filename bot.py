@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from pipecat.frames.frames import (
-    AudioRawFrame, EndFrame, StartFrame, TextFrame, TranscriptionFrame,
-    TTSSpeakFrame, VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame,
+    AudioRawFrame, EndFrame, LLMFullResponseEndFrame, StartFrame, TextFrame,
+    TranscriptionFrame, TTSSpeakFrame, VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -18,7 +18,6 @@ from pipecat.processors.aggregators.llm_response_universal import LLMContextAggr
 from pipecat.processors.frame_processor import FrameProcessor
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
-from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
@@ -26,7 +25,6 @@ from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
 # ── LLM services ─────────────────────────────────────────────────────────────
-from pipecat.services.google.llm import GoogleLLMService          # Gemini
 from pipecat.services.groq.llm import GroqLLMService              # Groq / Llama
 # from pipecat.services.anthropic.llm import AnthropicLLMService  # loaded on demand
 
@@ -232,13 +230,19 @@ class TranscriptLogger(FrameProcessor):
     def __init__(self, tx: deque, **kwargs):
         super().__init__(**kwargs)
         self._tx = tx
+        self._buf = []
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text and frame.text.strip():
             self._tx.append({"role": "user", "text": frame.text.strip()})
-        elif isinstance(frame, TextFrame) and frame.text and frame.text.strip():
-            self._tx.append({"role": "priya", "text": frame.text.strip()})
+        elif isinstance(frame, TextFrame) and frame.text:
+            self._buf.append(frame.text)
+        elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
+            full = "".join(self._buf).strip()
+            if full:
+                self._tx.append({"role": "priya", "text": full})
+            self._buf = []
         await self.push_frame(frame, direction)
 
 
@@ -268,8 +272,8 @@ def _make_llm(provider: str):
             api_key=os.environ["GROQ_API_KEY"],
             settings=GroqLLMService.Settings(
                 model="llama-3.3-70b-versatile",
-                temperature=0.7,
-                max_tokens=512,
+                temperature=0.6,
+                max_tokens=300,
             ),
         )
         return svc, True
@@ -279,29 +283,53 @@ def _make_llm(provider: str):
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
-                model="claude-opus-4-7",
+                model="claude-haiku-4-5-20251001",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=512,
+                max_tokens=300,
             ),
         )
         return svc, False
 
-    else:  # default: gemini
-        svc = GoogleLLMService(
-            api_key=os.environ["GOOGLE_API_KEY"],
-            settings=GoogleLLMService.Settings(
-                model="gemini-2.0-flash-lite",
+    elif provider == "opus":
+        from pipecat.services.anthropic.llm import AnthropicLLMService
+        svc = AnthropicLLMService(
+            api_key=os.environ["ANTHROPIC_API_KEY"],
+            settings=AnthropicLLMService.Settings(
+                model="claude-opus-4-7",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=512,
-                temperature=0.7,
+                max_tokens=400,
             ),
         )
         return svc, False
+
+    elif provider == "openai":
+        from pipecat.services.openai.llm import OpenAILLMService
+        svc = OpenAILLMService(
+            api_key=os.environ["OPENAI_API_KEY"],
+            settings=OpenAILLMService.Settings(
+                model="gpt-4o-mini",
+                system_instruction=SYSTEM_PROMPT,
+                max_tokens=300,
+                temperature=0.6,
+            ),
+        )
+        return svc, False
+
+    else:  # default: groq
+        svc = GroqLLMService(
+            api_key=os.environ["GROQ_API_KEY"],
+            settings=GroqLLMService.Settings(
+                model="llama-3.3-70b-versatile",
+                temperature=0.7,
+                max_tokens=300,
+            ),
+        )
+        return svc, True
 
 
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
-async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", transcript: deque = None):
+async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", transcript: deque = None):
     logger.info(f"Starting bot — STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}")
     if transcript is not None:
         transcript.append({"role": "system", "text": f"Call started | STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}"})
@@ -318,20 +346,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
         ),
     )
 
-    if stt_provider == "deepgram":
-        stt = DeepgramSTTService(
-            api_key=os.environ["DEEPGRAM_API_KEY"],
-            settings=DeepgramSTTService.Settings(
-                model="nova-2-general",
-                language=Language.TA,
-                punctuate=True,
-                interim_results=True,
-                endpointing=200,
-                smart_format=True,
-            ),
-        )
-        silero_vad = None
-    elif stt_provider == "elevenlabs":
+    if stt_provider == "elevenlabs":
         # ElevenLabs STT is batch — needs Silero VAD processor in pipeline to
         # generate VADUserStartedSpeakingFrame / VADUserStoppedSpeakingFrame
         from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
@@ -352,13 +367,12 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
             settings=SarvamSTTService.Settings(
                 model="saaras:v3",
                 language=Language.TA_IN,
-                # Use Sarvam's own VAD — SmallWebRTC emits no VAD frames so
-                # flush() would never fire, causing multi-second endpointing delay.
                 vad_signals=True,
                 high_vad_sensitivity=True,
-                # End speech quickly after silence
-                negative_frames_count=6,
-                negative_frames_window=12,
+                positive_speech_threshold=0.6,
+                negative_speech_threshold=0.3,
+                negative_frames_count=3,
+                negative_frames_window=6,
             ),
         )
         silero_vad = None
@@ -389,9 +403,8 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
         tts_node = ElevenLabsTTSService(
             api_key=os.environ["ELEVENLABS_API_KEY"],
             settings=ElevenLabsTTSService.Settings(
-                model="eleven_turbo_v2_5",
+                model="eleven_multilingual_v2",
                 voice=os.environ["ELEVENLABS_VOICE_TA"],
-                language=Language.TA,
             ),
         )
         voice_switcher = VoiceSwitcher(
@@ -485,7 +498,11 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
         if transcript is not None:
             transcript.append({"role": "system", "text": "Call ended"})
         await params.result_callback("Call ended.")
-        await task.cancel()
+        # Delay cancel so LLM can stream the farewell line and TTS can speak it
+        async def _delayed_end():
+            await asyncio.sleep(6)
+            await task.cancel()
+        asyncio.create_task(_delayed_end())
 
     llm_service.register_function("save_booking", handle_save_booking)
     llm_service.register_function("end_call", handle_end_call)
