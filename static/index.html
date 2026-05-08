@@ -455,6 +455,15 @@
       <h2>Model Selector</h2>
 
       <div class="selector-row">
+        <span class="selector-label">STT</span>
+        <div class="chip-group" id="stt-chips">
+          <button class="chip active" data-stt="sarvam">Sarvam</button>
+          <button class="chip" data-stt="deepgram">Deepgram</button>
+          <button class="chip" data-stt="elevenlabs">ElevenLabs</button>
+        </div>
+      </div>
+
+      <div class="selector-row">
         <span class="selector-label">LLM</span>
         <div class="chip-group" id="llm-chips">
           <button class="chip active" data-llm="gemini">Gemini</button>
@@ -467,12 +476,13 @@
         <span class="selector-label">TTS</span>
         <div class="chip-group" id="tts-chips">
           <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
+          <button class="chip" data-tts="sarvam">Sarvam</button>
           <button class="chip" data-tts="cartesia">Cartesia</button>
         </div>
       </div>
 
       <div class="active-badge" id="active-badge">
-        Active: <span id="badge-llm">Gemini</span> + <span id="badge-tts">ElevenLabs</span>
+        STT: <span id="badge-stt">Sarvam</span> &nbsp;|&nbsp; LLM: <span id="badge-llm">Gemini</span> &nbsp;|&nbsp; TTS: <span id="badge-tts">ElevenLabs</span>
       </div>
     </div>
 
@@ -563,6 +573,7 @@
     let txPollId    = null;
     let logPollId   = null;
     let callStartTs = null;
+    let selectedSTT = 'sarvam';
     let selectedLLM = 'gemini';
     let selectedTTS = 'elevenlabs';
     let lastLogCount = 0;
@@ -575,6 +586,7 @@
     const micBtn     = document.getElementById('mic-btn');
     const errorToast = document.getElementById('error-toast');
     const latencyEl  = document.getElementById('latency');
+    const badgeSTT   = document.getElementById('badge-stt');
     const badgeLLM   = document.getElementById('badge-llm');
     const badgeTTS   = document.getElementById('badge-tts');
     const srvLogBody = document.getElementById('srv-log-body');
@@ -582,6 +594,16 @@
     const logCount   = document.getElementById('log-count');
 
     // ── Chip selectors ──────────────────────────────────────────────
+    document.querySelectorAll('#stt-chips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state !== States.IDLE) return;
+        document.querySelectorAll('#stt-chips .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedSTT = btn.dataset.stt;
+        badgeSTT.textContent = btn.textContent;
+      });
+    });
+
     document.querySelectorAll('#llm-chips .chip').forEach(btn => {
       btn.addEventListener('click', () => {
         if (state !== States.IDLE) return;
@@ -844,6 +866,7 @@
           body: JSON.stringify({
             sdp: pc.localDescription.sdp,
             type: pc.localDescription.type,
+            stt: selectedSTT,
             llm: selectedLLM,
             tts: selectedTTS,
           }),

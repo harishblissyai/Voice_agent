@@ -71,11 +71,12 @@ async def offer(request: Request):
     body = await request.json()
     llm_provider = body.pop("llm", "gemini")
     tts_provider = body.pop("tts", "elevenlabs")
+    stt_provider = body.pop("stt", "sarvam")
 
     rtc_request = SmallWebRTCRequest.from_dict(body)
 
     async def bot_callback(connection):
-        asyncio.create_task(run_bot(connection, llm_provider=llm_provider, tts_provider=tts_provider, transcript=transcript))
+        asyncio.create_task(run_bot(connection, llm_provider=llm_provider, tts_provider=tts_provider, stt_provider=stt_provider, transcript=transcript))
 
     answer = await request_handler.handle_web_request(rtc_request, bot_callback)
     return answer
