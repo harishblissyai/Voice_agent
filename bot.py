@@ -319,11 +319,10 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
     )
 
     if stt_provider == "deepgram":
-        # nova-3 rejects Tamil (ta) with 400; nova-2 supports 36 languages incl. Tamil
         stt = DeepgramSTTService(
             api_key=os.environ["DEEPGRAM_API_KEY"],
             settings=DeepgramSTTService.Settings(
-                model="nova-2",
+                model="nova-2-general",
                 language=Language.TA,
                 punctuate=True,
                 interim_results=True,
@@ -425,7 +424,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "gemini", tts_provider:
             settings=SarvamTTSService.Settings(
                 model="bulbul:v3-beta",
                 language=Language.TA_IN,
-                voice="priya",
+                voice="simran",
                 pace=1.0,
             ),
         )
