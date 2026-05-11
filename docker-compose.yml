@@ -1,8 +1,14 @@
 services:
-  bot:
+  blissy-voice:
     build: .
+    container_name: blissy-voice-bot
     ports:
-      - "8000:8000"
+      - "8001:8000"       # host:container — 8001 avoids conflict with other services
     env_file:
       - .env
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
