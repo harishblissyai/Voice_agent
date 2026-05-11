@@ -3,7 +3,7 @@ services:
     build: .
     container_name: blissy-voice-bot
     ports:
-      - "8000:8000"       # host:container — port 8000 already open in security group
+      - "8080:8000"       # host:container — port 8080 (unused, added to security group)
     env_file:
       - .env
     restart: unless-stopped
