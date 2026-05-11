@@ -295,6 +295,28 @@
     .tx-item.booking .tx-role { color: #4ade80; }
     .tx-text { font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; word-break: break-word; }
     .tx-item.system .tx-text { font-size: 0.7rem; color: #475569; font-style: italic; }
+    .tx-timing { display:inline-flex; gap:6px; margin-left:8px; font-size:0.63rem; background:rgba(100,116,139,0.08); border:1px solid rgba(100,116,139,0.18); border-radius:4px; padding:1px 6px; vertical-align:middle; }
+    .tx-timing span { color:#64748b; }
+    .tx-timing .t-stt  { color:#34d399; }
+    .tx-timing .t-llm  { color:#38bdf8; }
+    .tx-timing .t-gen  { color:#818cf8; }
+    .tx-timing .t-tts  { color:#f0b429; }
+
+    /* Timing table */
+    .timing-section { margin-top: 16px; }
+    .timing-hdr { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 8px; }
+    .timing-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .timing-table th { color: #64748b; font-weight: 600; text-align: left; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .timing-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #cbd5e1; }
+    .timing-table .t-stt  { color: #34d399; font-weight: 600; }
+    .timing-table .t-llm  { color: #38bdf8; font-weight: 600; }
+    .timing-table .t-gen  { color: #818cf8; font-weight: 600; }
+    .timing-table .t-tts  { color: #f0b429; font-weight: 600; }
+    .t-bar-wrap { width: 90px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; display:flex; gap:1px; }
+    .t-bar-stt  { height:100%; background:#34d399; }
+    .t-bar-llm  { height:100%; background:#38bdf8; }
+    .t-bar-gen  { height:100%; background:#818cf8; }
+    .t-bar-tts  { height:100%; background:#f0b429; }
 
     /* Logs */
     .logs-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-shrink: 0; }
@@ -396,9 +418,9 @@
         <span class="sel-lbl">LLM</span>
         <div class="chips" id="llm-chips">
           <button class="chip active" data-llm="groq">Groq</button>
+          <button class="chip" data-llm="sarvam">Sarvam</button>
           <button class="chip" data-llm="anthropic">Haiku</button>
           <button class="chip" data-llm="opus">Opus</button>
-          <button class="chip" data-llm="openai">OpenAI</button>
         </div>
       </div>
       <div class="sel-row">
@@ -407,6 +429,13 @@
           <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
           <button class="chip" data-tts="sarvam">Sarvam</button>
           <button class="chip" data-tts="cartesia">Cartesia</button>
+          <button class="chip" data-tts="rime">Rime</button>
+        </div>
+      </div>
+      <div class="sel-row" id="voice-row">
+        <span class="sel-lbl">VOICE</span>
+        <div class="chips" id="voice-chips">
+          <span style="opacity:0.4;font-size:11px">Loading…</span>
         </div>
       </div>
     </div>
@@ -530,6 +559,15 @@
             </div>
           </div>
         </div>
+
+        <!-- Response time table -->
+        <div class="timing-section">
+          <div class="timing-hdr">⏱ Response Times <span style="opacity:0.4;font-size:0.7rem;font-weight:400">per turn in ms</span></div>
+          <table class="timing-table" id="timing-table">
+            <thead><tr><th>#</th><th class="t-stt">STT</th><th class="t-llm">LLM TTFT</th><th class="t-gen">LLM Gen</th><th class="t-tts">TTS</th><th>Breakdown</th></tr></thead>
+            <tbody id="timing-body"><tr><td colspan="6" style="opacity:0.4;text-align:center;padding:12px">No turns yet</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -584,14 +622,15 @@
     },
     llm: {
       groq:      { name:'Groq / Meta',   model:'llama-3.3-70b-versatile' },
+      sarvam:    { name:'Sarvam AI',     model:'sarvam-30b · Indian' },
       anthropic: { name:'Claude Haiku',  model:'claude-haiku-4-5' },
       opus:      { name:'Claude Opus',   model:'claude-opus-4-7' },
-      openai:    { name:'OpenAI',        model:'gpt-4o-mini' },
     },
     tts: {
-      elevenlabs: { name:'ElevenLabs',  model:'eleven_turbo_v2_5 · dual-voice' },
-      sarvam:     { name:'Sarvam AI',   model:'bulbul:v3-beta · priya · ta-IN' },
+      elevenlabs: { name:'ElevenLabs',  model:'eleven_multilingual_v2' },
+      sarvam:     { name:'Sarvam AI',   model:'bulbul:v3-beta · ta-IN' },
       cartesia:   { name:'Cartesia',    model:'sonic-3 · ta' },
+      rime:       { name:'Rime AI',     model:'mistv2 · Indian English' },
     },
   };
 
@@ -600,7 +639,8 @@
   let audioCtx = null, remoteAna = null, localAna = null;
   let rafId = null, animFrame = null, txPollId = null, logPollId = null;
   let timerInterval = null, callStartTs = null, turnCount = 0;
-  let selectedSTT = 'sarvam', selectedLLM = 'groq', selectedTTS = 'elevenlabs';
+  let selectedSTT = 'sarvam', selectedLLM = 'groq', selectedTTS = 'elevenlabs', selectedVoice = null;
+  let voiceConfig = {};
   let lastLogCount = 0, logPinned = false, logFilter = 'all';
 
   const orbWrap   = document.getElementById('orb-wrap');
@@ -637,7 +677,43 @@
   }
   setupChips('stt-chips','stt', v => selectedSTT = v);
   setupChips('llm-chips','llm', v => selectedLLM = v);
-  setupChips('tts-chips','tts', v => selectedTTS = v);
+  setupChips('tts-chips','tts', v => { selectedTTS = v; renderVoiceChips(v); });
+
+  // ── VOICE CHIPS ────────────────────────────────────────────────────
+  async function loadVoices() {
+    try {
+      const res = await fetch('/voices');
+      voiceConfig = await res.json();
+      renderVoiceChips(selectedTTS);
+    } catch(e) { console.warn('Could not load voices', e); }
+  }
+
+  function renderVoiceChips(tts) {
+    const container = document.getElementById('voice-chips');
+    const voices = (voiceConfig[tts] || []).filter(v => v.id);
+    if (!voices.length) {
+      container.innerHTML = '<span style="opacity:0.4;font-size:11px">No extra voices configured</span>';
+      selectedVoice = null;
+      return;
+    }
+    container.innerHTML = '';
+    voices.forEach((v, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (i === 0 ? ' active' : '');
+      btn.textContent = v.label;
+      btn.dataset.voice = v.id;
+      btn.addEventListener('click', () => {
+        if (state !== States.IDLE) return;
+        container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedVoice = v.id;
+      });
+      container.appendChild(btn);
+    });
+    selectedVoice = voices[0].id;
+  }
+
+  loadVoices();
 
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -795,24 +871,79 @@
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   const AV   = { user:'🎤', priya:'✨', system:'⚙', booking:'📋' };
   const ROLE = { user:'You', priya:'Priya', system:'System', booking:'Booking Saved' };
+  let timingRows = [];
 
   function renderTranscript(lines) {
     const el = document.getElementById('tx-lines');
     el.innerHTML = '';
     let uTurns = 0;
+    timingRows = [];
+    let lastPriyaDiv = null;
+
     lines.forEach(line => {
+      if (line.role === 'timing') {
+        timingRows.push(line);
+        // Attach badge to the last priya bubble
+        if (lastPriyaDiv) {
+          const p = line;
+          const parts = [];
+          if (p.stt_ms   != null) parts.push(`<span class="t-stt">STT ${p.stt_ms}ms</span>`);
+          if (p.llm_ttft != null) parts.push(`<span class="t-llm">LLM ${p.llm_ttft}ms</span>`);
+          if (p.llm_gen  != null) parts.push(`<span class="t-gen">Gen ${p.llm_gen}ms</span>`);
+          if (p.tts_ms   != null) parts.push(`<span class="t-tts">TTS ${p.tts_ms}ms</span>`);
+          if (parts.length) {
+            const roleEl = lastPriyaDiv.querySelector('.tx-role');
+            if (roleEl && !roleEl.querySelector('.tx-timing')) {
+              roleEl.insertAdjacentHTML('beforeend', `<span class="tx-timing">${parts.join('<span style="opacity:0.3">·</span>')}</span>`);
+            }
+          }
+          lastPriyaDiv = null;
+        }
+        return;
+      }
       if (line.role === 'user') uTurns++;
       const div = document.createElement('div');
       div.className = `tx-item ${line.role}`;
       div.innerHTML = `<div class="tx-av">${AV[line.role]||'·'}</div><div class="tx-body"><div class="tx-role">${ROLE[line.role]||line.role}</div><div class="tx-text">${esc(line.text)}</div></div>`;
+      if (line.role === 'priya') lastPriyaDiv = div;
       el.appendChild(div);
     });
+
     document.getElementById('tx-scroll').scrollTop = 9999;
     if (uTurns !== turnCount) {
       turnCount = uTurns;
       document.getElementById('m-turns').textContent = turnCount;
       document.getElementById('turn-pill').textContent = turnCount > 0 ? `${turnCount} turn${turnCount!==1?'s':''}` : '';
     }
+    renderTimingTable();
+  }
+
+  function renderTimingTable() {
+    const tbody = document.getElementById('timing-body');
+    if (!timingRows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="opacity:0.4;text-align:center;padding:12px">No turns yet</td></tr>';
+      return;
+    }
+    const ms = v => v != null ? `${v}` : '<span style="opacity:0.3">–</span>';
+    const maxTotal = Math.max(...timingRows.map(r => (r.stt_ms||0)+(r.llm_ttft||0)+(r.llm_gen||0)+(r.tts_ms||0)), 1);
+    tbody.innerHTML = timingRows.map((r, i) => {
+      const total = (r.stt_ms||0)+(r.llm_ttft||0)+(r.llm_gen||0)+(r.tts_ms||0);
+      const pct = v => v ? Math.round(v/maxTotal*90) : 0;
+      const bar = `<div class="t-bar-wrap">
+        <div class="t-bar-stt" style="width:${pct(r.stt_ms)}%"></div>
+        <div class="t-bar-llm" style="width:${pct(r.llm_ttft)}%"></div>
+        <div class="t-bar-gen" style="width:${pct(r.llm_gen)}%"></div>
+        <div class="t-bar-tts" style="width:${pct(r.tts_ms)}%"></div>
+      </div>`;
+      return `<tr>
+        <td style="opacity:0.5">${i+1}</td>
+        <td class="t-stt">${ms(r.stt_ms)}</td>
+        <td class="t-llm">${ms(r.llm_ttft)}</td>
+        <td class="t-gen">${ms(r.llm_gen)}</td>
+        <td class="t-tts">${ms(r.tts_ms)}</td>
+        <td>${bar}</td>
+      </tr>`;
+    }).join('');
   }
 
   async function pollTranscript() {
@@ -941,7 +1072,7 @@
       const resp = await fetch('/offer', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, stt:selectedSTT, llm:selectedLLM, tts:selectedTTS }),
+        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, stt:selectedSTT, llm:selectedLLM, tts:selectedTTS, voice:selectedVoice }),
       });
       if (!resp.ok) throw new Error(`Server ${resp.status}`);
       answer = await resp.json();

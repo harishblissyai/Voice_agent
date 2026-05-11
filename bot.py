@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from collections import deque
 
 import aiohttp
@@ -8,7 +9,8 @@ from loguru import logger
 
 from pipecat.frames.frames import (
     AudioRawFrame, EndFrame, LLMFullResponseEndFrame, StartFrame, TextFrame,
-    TranscriptionFrame, TTSSpeakFrame, VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame,
+    TranscriptionFrame, TTSAudioRawFrame, TTSSpeakFrame,
+    VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -26,11 +28,13 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
 # ── LLM services ─────────────────────────────────────────────────────────────
 from pipecat.services.groq.llm import GroqLLMService              # Groq / Llama
+from pipecat.services.sarvam.llm import SarvamLLMService          # Sarvam / Indian
 # from pipecat.services.anthropic.llm import AnthropicLLMService  # loaded on demand
 
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.cartesia.tts import CartesiaTTSService
+from pipecat.services.rime.tts import RimeTTSService
 
 load_dotenv()
 
@@ -48,13 +52,21 @@ You handle inbound phone calls for table reservations: new bookings, modificatio
 - Read back details clearly and only once at confirmation.
 - Never begin a reply with "Okay,", "Wait,", "Let me", "So,".
 
-# Language
-- Default to Tanglish (Tamil + English). Mirror the caller's language from the very next turn.
-- Caller speaks Tamil or mixes Tamil words → continue in TANGLISH (Tamil script + English words mixed) naturally. Do not announce the switch.
-  Example: "சரி சார், நாளைக்கு evening seven o'clock slot available இருக்கு."
-- Caller speaks English → switch to warm Indian English silently from the next reply.
-- If the caller switches back, switch back silently the same way. Never narrate the language change.
-- Never reply in pure Tamil script only. Never mix three languages in one reply.
+# Language — ADAPTIVE
+Detect the caller's language from their words and script. Respond in the SAME mixed style from the very next turn. Never announce a language switch.
+
+- **Tamil/Tanglish** → Tamil script + English mixed. Example: "சரி சார், நாளைக்கு seven o'clock slot available இருக்கு."
+- **Kannada/Kanglish** → ಕನ್ನಡ + English mixed. Example: "Okay sir, ನಾಳೆ seven o'clock available ಇದೆ."
+- **Malayalam/Manglish** → മലയാളം + English mixed. Example: "Okay sir, നാളെ seven o'clock available ആണ്."
+- **Telugu/Tenglish** → తెలుగు + English mixed. Example: "Okay sir, రేపు seven o'clock available ఉంది."
+- **Hindi/Hinglish** → हिंदी + English mixed. Example: "Haan sir, kal seven baje slot available hai."
+- **English** → warm Indian English. Example: "Sure sir, tomorrow at seven is available."
+
+Rules:
+- Mirror the caller's language from the very next turn after detecting it.
+- If the caller switches language mid-call, switch with them silently.
+- Never mix more than two languages in one reply.
+- Never reply in pure script only — always blend English.
 
 # Goal
 For every caller, identify the path (new booking / modify / cancel / question) and handle it cleanly. For a new booking, collect strictly one at a time, in this order:
@@ -87,7 +99,7 @@ Then confirm all four in one short warm line before closing.
 You have built-in capabilities to end the call. Booking-system integrations may be configured by the workspace owner. When you cannot perform an action with available tools, capture the request details and tell the caller that someone from the front desk will confirm shortly.
 
 # When to end the call
-ALWAYS call the end_call tool when the caller says goodbye in any form ("thanks bye", "that's all", "sari sari", "ஆமா போதும்"), explicitly asks to end, or the booking is fully confirmed and they are done. Briefly acknowledge first, then call end_call.
+ALWAYS call the end_call tool when the caller says goodbye in any form ("thanks bye", "that's all", "sari sari", "ஆமா போதும்", "theek hai bye", "sari"), explicitly asks to end, or the booking is fully confirmed and they are done. Briefly acknowledge first, then call end_call.
 
 # Confirmation Line (example)
 "Sure sir, noted — twenty sixth, nine o'clock, four guests, under the name Gautam, booking confirmed, thank you for choosing Blissy."
@@ -155,19 +167,36 @@ class SileroVADProcessor(FrameProcessor):
 
 # ── Multi-language support ────────────────────────────────────────────────────
 
+# Unicode block ranges for each Indian script
+_SCRIPT_DETECT = [
+    (Language.TA_IN, 0x0B80, 0x0BFF),   # Tamil
+    (Language.KN_IN, 0x0C80, 0x0CFF),   # Kannada
+    (Language.ML_IN, 0x0D00, 0x0D7F),   # Malayalam
+    (Language.TE_IN, 0x0C00, 0x0C7F),   # Telugu
+    (Language.HI_IN, 0x0900, 0x097F),   # Hindi / Devanagari (also covers Marathi, Konkani)
+]
+
+
 class LanguageState:
     """Shared mutable language state with hysteresis to avoid flipping on single words."""
     SWITCH_THRESHOLD = 2
 
     def __init__(self):
-        self.current = Language.TA
+        self.current = Language.TA_IN
         self._pending = None
         self._pending_count = 0
 
     def update(self, text: str):
-        # Detect by content: Tamil Unicode block U+0B80–U+0BFF
-        tamil_chars = sum(1 for c in text if '஀' <= c <= '௿')
-        detected = Language.TA if tamil_chars > 0 else Language.EN
+        counts: dict = {}
+        for lang, lo, hi in _SCRIPT_DETECT:
+            n = sum(1 for c in text if lo <= ord(c) <= hi)
+            if n > 0:
+                counts[lang] = n
+
+        if counts:
+            detected = max(counts, key=counts.get)
+        else:
+            detected = Language.EN_IN  # no Indian script → treat as English
 
         if detected == self.current:
             self._pending = None
@@ -203,9 +232,8 @@ class LanguageDetectorProcessor(FrameProcessor):
 class VoiceSwitcher(FrameProcessor):
     """Updates a single ElevenLabs service's voice before each utterance.
 
-    Sits in the normal pipeline — no _next link-swapping, no dual-service
-    initialization races. Just updates settings.voice in-place before the
-    TTS service sees the frame.
+    ElevenLabs has two voices: one English-accent, one Indian-accent.
+    Any Indian language detected → Indian voice; English → English voice.
     """
     def __init__(self, tts: ElevenLabsTTSService, voice_en: str, voice_ta: str,
                  language_state: LanguageState, **kwargs):
@@ -219,30 +247,91 @@ class VoiceSwitcher(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, (TextFrame, TTSSpeakFrame)):
             self._tts._settings.voice = (
-                self._voice_en if self._state.current == Language.EN else self._voice_ta
+                self._voice_en if self._state.current == Language.EN_IN else self._voice_ta
             )
+        await self.push_frame(frame, direction)
+
+
+class SarvamLangSwitcher(FrameProcessor):
+    """Updates Sarvam TTS language setting before each utterance based on LanguageState."""
+    def __init__(self, tts: SarvamTTSService, language_state: LanguageState, **kwargs):
+        super().__init__(**kwargs)
+        self._tts   = tts
+        self._state = language_state
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, (TextFrame, TTSSpeakFrame)):
+            lang = self._state.current
+            # Sarvam TTS only supports specific Indian language codes
+            # Fall back to TA_IN for unsupported / unknown codes
+            supported = {Language.TA_IN, Language.KN_IN, Language.ML_IN,
+                         Language.TE_IN, Language.HI_IN, Language.EN_IN}
+            self._tts._settings.language = lang if lang in supported else Language.TA_IN
         await self.push_frame(frame, direction)
 
 
 # ── Transcript logger ─────────────────────────────────────────────────────────
 
 class TranscriptLogger(FrameProcessor):
-    def __init__(self, tx: deque, **kwargs):
+    def __init__(self, tx: deque, timing: dict = None, **kwargs):
         super().__init__(**kwargs)
         self._tx = tx
         self._buf = []
+        self._timing = timing
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
-        if isinstance(frame, TranscriptionFrame) and frame.text and frame.text.strip():
+        t = self._timing
+        if isinstance(frame, VADUserStoppedSpeakingFrame):
+            if t is not None:
+                t["vad_stop"] = time.perf_counter()
+        elif isinstance(frame, TranscriptionFrame) and frame.text and frame.text.strip():
             self._tx.append({"role": "user", "text": frame.text.strip()})
+            if t is not None:
+                t["stt_done"]  = time.perf_counter()
+                t["llm_first"] = None
+                t["llm_done"]  = None
+                t["tts_first"] = None
         elif isinstance(frame, TextFrame) and frame.text:
             self._buf.append(frame.text)
+            if t is not None and t.get("stt_done") and t.get("llm_first") is None:
+                t["llm_first"] = time.perf_counter()
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
             full = "".join(self._buf).strip()
             if full:
                 self._tx.append({"role": "priya", "text": full})
+            if t is not None and t.get("stt_done"):
+                t["llm_done"] = time.perf_counter()
+                # TTSTimingLogger will append the timing row once TTS first audio arrives
             self._buf = []
+        await self.push_frame(frame, direction)
+
+
+class TTSTimingLogger(FrameProcessor):
+    """Sits after TTS node — records time to first audio byte and flushes timing row."""
+    def __init__(self, tx: deque, timing: dict, **kwargs):
+        super().__init__(**kwargs)
+        self._tx = tx
+        self._timing = timing
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        t = self._timing
+        if isinstance(frame, TTSAudioRawFrame) and t.get("llm_done") and t.get("tts_first") is None:
+            t["tts_first"] = time.perf_counter()
+            vad  = t.get("vad_stop")
+            stt  = t.get("stt_done")
+            llm1 = t.get("llm_first")
+            llmd = t.get("llm_done")
+            tts1 = t["tts_first"]
+            self._tx.append({
+                "role":      "timing",
+                "stt_ms":    round((stt  - vad)  * 1000) if vad  and stt  else None,
+                "llm_ttft":  round((llm1 - stt)  * 1000) if stt  and llm1 else None,
+                "llm_gen":   round((llmd - llm1) * 1000) if llm1 and llmd else None,
+                "tts_ms":    round((tts1 - llm1) * 1000) if llm1           else None,
+            })
         await self.push_frame(frame, direction)
 
 
@@ -267,7 +356,19 @@ async def _post_to_n8n(data: dict) -> bool:
 
 def _make_llm(provider: str):
     """Return (llm_service, needs_system_in_context)."""
-    if provider == "groq":
+    if provider == "sarvam":
+        svc = SarvamLLMService(
+            api_key=os.environ["SARVAM_API_KEY"],
+            settings=SarvamLLMService.Settings(
+                model="sarvam-30b",
+                system_instruction=SYSTEM_PROMPT,
+                max_tokens=300,
+                temperature=0.6,
+            ),
+        )
+        return svc, False
+
+    elif provider == "groq":
         svc = GroqLLMService(
             api_key=os.environ["GROQ_API_KEY"],
             settings=GroqLLMService.Settings(
@@ -297,20 +398,7 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-opus-4-7",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=400,
-            ),
-        )
-        return svc, False
-
-    elif provider == "openai":
-        from pipecat.services.openai.llm import OpenAILLMService
-        svc = OpenAILLMService(
-            api_key=os.environ["OPENAI_API_KEY"],
-            settings=OpenAILLMService.Settings(
-                model="gpt-4o-mini",
-                system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
-                temperature=0.6,
+                max_tokens=180,
             ),
         )
         return svc, False
@@ -329,8 +417,8 @@ def _make_llm(provider: str):
 
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
-async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", transcript: deque = None):
-    logger.info(f"Starting bot — STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}")
+async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, transcript: deque = None):
+    logger.info(f"Starting bot — STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider} | Voice: {voice_id or 'default'}")
     if transcript is not None:
         transcript.append({"role": "system", "text": f"Call started | STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}"})
 
@@ -366,7 +454,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
             mode="codemix",
             settings=SarvamSTTService.Settings(
                 model="saaras:v3",
-                language=Language.TA_IN,
+                language=None,          # auto-detect: Tamil, Hindi, Kannada, Malayalam, Telugu, English
                 vad_signals=True,
                 high_vad_sensitivity=True,
                 positive_speech_threshold=0.6,
@@ -391,30 +479,38 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
     pair = LLMContextAggregatorPair(context)
 
     tx = transcript if transcript is not None else deque(maxlen=1)
-    user_logger  = TranscriptLogger(tx)
-    priya_logger = TranscriptLogger(tx)
+    turn_timing      = {"vad_stop": None, "stt_done": None, "llm_first": None, "llm_done": None, "tts_first": None}
+    user_logger      = TranscriptLogger(tx, timing=turn_timing)
+    priya_logger     = TranscriptLogger(tx, timing=turn_timing)
+    tts_timing_log   = TTSTimingLogger(tx, timing=turn_timing)
+
+    # Shared language state — used by detector + TTS switcher
+    language_state    = LanguageState()
+    language_detector = LanguageDetectorProcessor(language_state)
+
+    _pre_stt = [silero_vad] if silero_vad else []
 
     # ── Build TTS section and pipeline ───────────────────────────────────────
     if tts_provider == "elevenlabs":
-        language_state    = LanguageState()
-        language_detector = LanguageDetectorProcessor(language_state)
-
-        # Single ElevenLabs service — voice is swapped per-turn by VoiceSwitcher
+        _el_ta_voice = voice_id or os.environ["ELEVENLABS_VOICE_TA"]
         tts_node = ElevenLabsTTSService(
             api_key=os.environ["ELEVENLABS_API_KEY"],
+            auto_mode=True,
             settings=ElevenLabsTTSService.Settings(
-                model="eleven_multilingual_v2",
-                voice=os.environ["ELEVENLABS_VOICE_TA"],
+                model="eleven_turbo_v2_5",
+                voice=_el_ta_voice,
+                stability=0.45,
+                similarity_boost=0.8,
+                speed=1.0,
             ),
         )
         voice_switcher = VoiceSwitcher(
             tts_node,
             voice_en=os.environ["ELEVENLABS_VOICE_EN"],
-            voice_ta=os.environ["ELEVENLABS_VOICE_TA"],
+            voice_ta=_el_ta_voice,
             language_state=language_state,
         )
 
-        _pre_stt = [silero_vad] if silero_vad else []
         pipeline = Pipeline([
             transport.input(),
             *_pre_stt,
@@ -426,32 +522,59 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
             priya_logger,
             voice_switcher,
             tts_node,
+            tts_timing_log,
             transport.output(),
             pair.assistant(),
         ])
 
     elif tts_provider == "sarvam":
-        # Sarvam TTS — Indian Tamil voice (Pavithra), no language switching needed
         tts_node = SarvamTTSService(
             api_key=os.environ["SARVAM_API_KEY"],
             settings=SarvamTTSService.Settings(
                 model="bulbul:v3-beta",
                 language=Language.TA_IN,
-                voice="simran",
+                voice=voice_id or "simran",
                 pace=1.0,
             ),
         )
+        lang_switcher = SarvamLangSwitcher(tts_node, language_state)
 
-        _pre_stt = [silero_vad] if silero_vad else []
         pipeline = Pipeline([
             transport.input(),
             *_pre_stt,
             stt,
+            language_detector,
+            user_logger,
+            pair.user(),
+            llm_service,
+            priya_logger,
+            lang_switcher,
+            tts_node,
+            tts_timing_log,
+            transport.output(),
+            pair.assistant(),
+        ])
+
+    elif tts_provider == "rime":
+        tts_node = RimeTTSService(
+            api_key=os.environ["RIME_API_KEY"],
+            settings=RimeTTSService.Settings(
+                model="mistv2",
+                voice=voice_id or "indira",
+            ),
+        )
+
+        pipeline = Pipeline([
+            transport.input(),
+            *_pre_stt,
+            stt,
+            language_detector,
             user_logger,
             pair.user(),
             llm_service,
             priya_logger,
             tts_node,
+            tts_timing_log,
             transport.output(),
             pair.assistant(),
         ])
@@ -461,21 +584,22 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
             api_key=os.environ["CARTESIA_API_KEY"],
             settings=CartesiaTTSService.Settings(
                 model="sonic-3",
-                voice=os.environ["CARTESIA_VOICE_ID"],
+                voice=voice_id or os.environ["CARTESIA_VOICE_ID"],
                 language=Language.TA,
             ),
         )
 
-        _pre_stt = [silero_vad] if silero_vad else []
         pipeline = Pipeline([
             transport.input(),
             *_pre_stt,
             stt,
+            language_detector,
             user_logger,
             pair.user(),
             llm_service,
             priya_logger,
             tts_node,
+            tts_timing_log,
             transport.output(),
             pair.assistant(),
         ])
