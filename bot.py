@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from pipecat.frames.frames import (
-    EndFrame, LLMFullResponseEndFrame, TextFrame,
+    AudioRawFrame, EndFrame, LLMFullResponseEndFrame, StartFrame, TextFrame,
     TranscriptionFrame, TTSAudioRawFrame, TTSSpeakFrame,
-    VADUserStoppedSpeakingFrame,
+    VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -20,14 +20,40 @@ from pipecat.processors.aggregators.llm_response_universal import LLMContextAggr
 from pipecat.processors.frame_processor import FrameProcessor
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
-from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.anthropic.llm import AnthropicLLMService
+from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
-from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
 load_dotenv()
+
+
+# ── Silero VAD (required by ElevenLabs batch STT) ────────────────────────────
+
+class SileroVADProcessor(FrameProcessor):
+    def __init__(self, stop_secs: float = 0.3, **kwargs):
+        super().__init__(**kwargs)
+        from pipecat.audio.vad.silero import SileroVADAnalyzer
+        from pipecat.audio.vad.vad_analyzer import VADParams
+        self._vad = SileroVADAnalyzer(params=VADParams(stop_secs=stop_secs))
+        self._speaking = False
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, StartFrame):
+            self._vad.set_sample_rate(16000)
+        elif isinstance(frame, AudioRawFrame):
+            from pipecat.audio.vad.vad_analyzer import VADState
+            result = await self._vad.analyze_audio(frame.audio)
+            if result == VADState.STARTING and not self._speaking:
+                self._speaking = True
+                await self.push_frame(VADUserStartedSpeakingFrame())
+            elif result in (VADState.STOPPING, VADState.QUIET) and self._speaking:
+                self._speaking = False
+                await self.push_frame(VADUserStoppedSpeakingFrame())
+        await self.push_frame(frame, direction)
+
 
 SYSTEM_PROMPT = """# Personality
 You are Priya, the warm and respectful table-reservations host at Blissy Restaurant, Chennai. You make every caller feel welcome like an old friend — friendly, unhurried, and quietly efficient. You handle booking requests with the ease of someone who greets guests at the door every evening.
@@ -213,9 +239,9 @@ _MODEL_IDS = {
 
 async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = None):
     model_id = _MODEL_IDS.get(model, _MODEL_IDS["haiku"])
-    logger.info(f"Starting bot — STT: Deepgram | LLM: Anthropic ({model_id}) | TTS: ElevenLabs")
+    logger.info(f"Starting bot — STT: ElevenLabs | LLM: Anthropic ({model_id}) | TTS: ElevenLabs")
     if transcript is not None:
-        transcript.append({"role": "system", "text": f"Call started | STT: Deepgram | LLM: {model_id} | TTS: ElevenLabs"})
+        transcript.append({"role": "system", "text": f"Call started | STT: ElevenLabs | LLM: {model_id} | TTS: ElevenLabs"})
 
     transport = SmallWebRTCTransport(
         webrtc_connection,
@@ -227,15 +253,13 @@ async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = N
         ),
     )
 
-    stt = DeepgramSTTService(
-        api_key=os.environ["DEEPGRAM_API_KEY"],
-        settings=DeepgramSTTService.Settings(
-            model="nova-3",
-            language=Language.EN_IN,
-            punctuate=True,
-            smart_format=True,
-            interim_results=True,
-            endpointing=400,
+    stt_session = aiohttp.ClientSession()
+    silero_vad  = SileroVADProcessor(stop_secs=0.3)
+    stt = ElevenLabsSTTService(
+        api_key=os.environ["ELEVENLABS_API_KEY"],
+        aiohttp_session=stt_session,
+        settings=ElevenLabsSTTService.Settings(
+            model="scribe_v2",
         ),
     )
 
@@ -272,6 +296,7 @@ async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = N
 
     pipeline = Pipeline([
         transport.input(),
+        silero_vad,
         stt,
         user_logger,
         pair.user(),
@@ -321,4 +346,7 @@ async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = N
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner(handle_sigint=False)
-    await runner.run(task)
+    try:
+        await runner.run(task)
+    finally:
+        await stt_session.close()
