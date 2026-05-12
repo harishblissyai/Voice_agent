@@ -206,10 +206,16 @@ async def _post_to_n8n(data: dict) -> bool:
 
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
-async def run_bot(webrtc_connection, transcript: deque = None):
-    logger.info("Starting bot — STT: Deepgram | LLM: Anthropic | TTS: ElevenLabs")
+_MODEL_IDS = {
+    "haiku": "claude-haiku-4-5-20251001",
+    "opus":  "claude-opus-4-7",
+}
+
+async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = None):
+    model_id = _MODEL_IDS.get(model, _MODEL_IDS["haiku"])
+    logger.info(f"Starting bot — STT: Deepgram | LLM: Anthropic ({model_id}) | TTS: ElevenLabs")
     if transcript is not None:
-        transcript.append({"role": "system", "text": "Call started | STT: Deepgram | LLM: Anthropic | TTS: ElevenLabs"})
+        transcript.append({"role": "system", "text": f"Call started | STT: Deepgram | LLM: {model_id} | TTS: ElevenLabs"})
 
     transport = SmallWebRTCTransport(
         webrtc_connection,
@@ -236,7 +242,7 @@ async def run_bot(webrtc_connection, transcript: deque = None):
     llm_service = AnthropicLLMService(
         api_key=os.environ["ANTHROPIC_API_KEY"],
         settings=AnthropicLLMService.Settings(
-            model="claude-haiku-4-5-20251001",
+            model=model_id,
             system_instruction=SYSTEM_PROMPT,
             max_tokens=300,
         ),

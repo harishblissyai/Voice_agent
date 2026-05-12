@@ -409,8 +409,9 @@
       <div class="card-lbl">Model</div>
       <div class="sel-row">
         <span class="sel-lbl">LLM</span>
-        <div class="chips">
-          <button class="chip active" disabled>Anthropic</button>
+        <div class="chips" id="model-chips">
+          <button class="chip active" data-model="haiku">Haiku</button>
+          <button class="chip" data-model="opus">Opus</button>
         </div>
       </div>
     </div>
@@ -595,6 +596,18 @@
   let rafId = null, animFrame = null, txPollId = null, logPollId = null;
   let timerInterval = null, callStartTs = null, turnCount = 0;
   let lastLogCount = 0, logPinned = false, logFilter = 'all';
+  let selectedModel = 'haiku';
+
+  document.querySelectorAll('#model-chips .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state !== States.IDLE) return;
+      document.querySelectorAll('#model-chips .chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedModel = btn.dataset.model;
+      document.getElementById('m-llm-model').textContent =
+        selectedModel === 'opus' ? 'claude-opus-4-7' : 'claude-haiku-4-5';
+    });
+  });
 
   const orbWrap   = document.getElementById('orb-wrap');
   const statusEl  = document.getElementById('status-text');
@@ -961,7 +974,7 @@
       const resp = await fetch('/offer', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type }),
+        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, model:selectedModel }),
       });
       if (!resp.ok) throw new Error(`Server ${resp.status}`);
       answer = await resp.json();
