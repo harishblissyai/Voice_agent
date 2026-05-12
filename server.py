@@ -72,17 +72,48 @@ async def serve_index():
     return FileResponse("static/index.html")
 
 
+@app.get("/voices")
+async def get_voices():
+    def _ev(key): return os.environ.get(key, "")
+    return JSONResponse({
+        "elevenlabs": [
+            {"id": _ev("ELEVENLABS_VOICE_TA"), "label": "Default"},
+            {"id": _ev("ELEVENLABS_VOICE_2"),  "label": "Voice 2"},
+            {"id": _ev("ELEVENLABS_VOICE_3"),  "label": "Voice 3"},
+        ],
+        "sarvam": [
+            {"id": "simran", "label": "Simran"},
+            {"id": "priya",  "label": "Priya"},
+            {"id": "kavya",  "label": "Kavya"},
+            {"id": "neha",   "label": "Neha"},
+        ],
+        "cartesia": [
+            {"id": _ev("CARTESIA_VOICE_ID"), "label": "Kavitha"},
+            {"id": _ev("CARTESIA_VOICE_2"),  "label": "Voice 2"},
+            {"id": _ev("CARTESIA_VOICE_3"),  "label": "Voice 3"},
+        ],
+        "rime": [
+            {"id": "indira",  "label": "Indira"},
+            {"id": "zara",    "label": "Zara"},
+            {"id": "pita",    "label": "Pita"},
+            {"id": "meadow",  "label": "Meadow"},
+        ],
+    })
 
 
 @app.post("/offer")
 async def offer(request: Request):
     body = await request.json()
-    model      = body.pop("model", "haiku")
-    expressive = bool(body.pop("expressive", False))
+    llm_provider = body.pop("llm", "groq")
+    tts_provider = body.pop("tts", "elevenlabs")
+    stt_provider = body.pop("stt", "sarvam")
+    voice_id     = body.pop("voice", None)
+    expressive   = bool(body.pop("expressive", False))
+
     rtc_request = SmallWebRTCRequest.from_dict(body)
 
     async def bot_callback(connection):
-        asyncio.create_task(run_bot(connection, model=model, expressive=expressive, transcript=transcript))
+        asyncio.create_task(run_bot(connection, llm_provider=llm_provider, tts_provider=tts_provider, stt_provider=stt_provider, voice_id=voice_id, expressive=expressive, transcript=transcript))
 
     answer = await request_handler.handle_web_request(rtc_request, bot_callback)
     return answer
