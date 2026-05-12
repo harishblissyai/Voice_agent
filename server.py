@@ -77,11 +77,12 @@ async def serve_index():
 @app.post("/offer")
 async def offer(request: Request):
     body = await request.json()
-    model = body.pop("model", "haiku")
+    model      = body.pop("model", "haiku")
+    expressive = bool(body.pop("expressive", False))
     rtc_request = SmallWebRTCRequest.from_dict(body)
 
     async def bot_callback(connection):
-        asyncio.create_task(run_bot(connection, model=model, transcript=transcript))
+        asyncio.create_task(run_bot(connection, model=model, expressive=expressive, transcript=transcript))
 
     answer = await request_handler.handle_web_request(rtc_request, bot_callback)
     return answer

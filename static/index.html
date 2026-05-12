@@ -414,6 +414,12 @@
           <button class="chip" data-model="opus">Opus</button>
         </div>
       </div>
+      <div class="sel-row">
+        <span class="sel-lbl">TTS</span>
+        <div class="chips">
+          <button class="chip" id="expressive-chip">✨ Expressive</button>
+        </div>
+      </div>
     </div>
 
     <!-- ORB -->
@@ -597,6 +603,13 @@
   let timerInterval = null, callStartTs = null, turnCount = 0;
   let lastLogCount = 0, logPinned = false, logFilter = 'all';
   let selectedModel = 'haiku';
+  let expressive = false;
+
+  document.getElementById('expressive-chip').addEventListener('click', () => {
+    if (state !== States.IDLE) return;
+    expressive = !expressive;
+    document.getElementById('expressive-chip').classList.toggle('active', expressive);
+  });
 
   document.querySelectorAll('#model-chips .chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -974,7 +987,7 @@
       const resp = await fetch('/offer', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, model:selectedModel }),
+        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, model:selectedModel, expressive }),
       });
       if (!resp.ok) throw new Error(`Server ${resp.status}`);
       answer = await resp.json();

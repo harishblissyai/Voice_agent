@@ -237,9 +237,9 @@ _MODEL_IDS = {
     "opus":  "claude-opus-4-7",
 }
 
-async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = None):
+async def run_bot(webrtc_connection, model: str = "haiku", expressive: bool = False, transcript: deque = None):
     model_id = _MODEL_IDS.get(model, _MODEL_IDS["haiku"])
-    logger.info(f"Starting bot — STT: ElevenLabs | LLM: Anthropic ({model_id}) | TTS: ElevenLabs")
+    logger.info(f"Starting bot — STT: ElevenLabs | LLM: Anthropic ({model_id}) | TTS: ElevenLabs | Expressive: {expressive}")
     if transcript is not None:
         transcript.append({"role": "system", "text": f"Call started | STT: ElevenLabs | LLM: {model_id} | TTS: ElevenLabs"})
 
@@ -278,8 +278,9 @@ async def run_bot(webrtc_connection, model: str = "haiku", transcript: deque = N
         settings=ElevenLabsTTSService.Settings(
             model="eleven_turbo_v2_5",
             voice=os.environ.get("ELEVENLABS_VOICE_ID", os.environ.get("ELEVENLABS_VOICE_TA", "")),
-            stability=0.45,
+            stability=0.30 if expressive else 0.45,
             similarity_boost=0.8,
+            style=0.60 if expressive else 0.0,
             speed=1.0,
         ),
     )
