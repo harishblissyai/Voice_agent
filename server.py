@@ -24,6 +24,7 @@ def _log_sink(message):
 
 logger.add(_log_sink, level="DEBUG", format="{message}")
 
+from aiortc.rtcconfiguration import RTCIceServer
 from pipecat.transports.smallwebrtc.request_handler import (
     SmallWebRTCPatchRequest,
     SmallWebRTCRequest,
@@ -34,7 +35,12 @@ from bot import run_bot
 
 load_dotenv()
 
-request_handler = SmallWebRTCRequestHandler()
+# STUN servers needed for WebRTC behind NAT (e.g. EC2)
+_ice_servers = [
+    RTCIceServer(urls="stun:stun.l.google.com:19302"),
+    RTCIceServer(urls="stun:stun1.l.google.com:19302"),
+]
+request_handler = SmallWebRTCRequestHandler(ice_servers=_ice_servers)
 
 # In-memory transcript for testing UI (last 50 lines)
 transcript: deque = deque(maxlen=50)
