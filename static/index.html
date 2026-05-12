@@ -394,9 +394,9 @@
     <div class="turn-pill" id="turn-pill"></div>
   </div>
   <div class="hdr-badges">
-    <span class="prov-badge stt" id="hdr-stt">Sarvam</span>
-    <span class="prov-badge llm" id="hdr-llm">Groq</span>
-    <span class="prov-badge tts" id="hdr-tts">ElevenLabs</span>
+    <span class="prov-badge stt">Deepgram</span>
+    <span class="prov-badge llm">Anthropic</span>
+    <span class="prov-badge tts">ElevenLabs</span>
   </div>
 </header>
 
@@ -406,36 +406,11 @@
   <div class="left-col">
 
     <div class="glass">
-      <div class="card-lbl">Model Configuration</div>
-      <div class="sel-row">
-        <span class="sel-lbl">STT</span>
-        <div class="chips" id="stt-chips">
-          <button class="chip active" data-stt="sarvam">Sarvam</button>
-          <button class="chip" data-stt="elevenlabs">ElevenLabs</button>
-        </div>
-      </div>
+      <div class="card-lbl">Model</div>
       <div class="sel-row">
         <span class="sel-lbl">LLM</span>
-        <div class="chips" id="llm-chips">
-          <button class="chip active" data-llm="groq">Groq</button>
-          <button class="chip" data-llm="sarvam">Sarvam</button>
-          <button class="chip" data-llm="anthropic">Haiku</button>
-          <button class="chip" data-llm="opus">Opus</button>
-        </div>
-      </div>
-      <div class="sel-row">
-        <span class="sel-lbl">TTS</span>
-        <div class="chips" id="tts-chips">
-          <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
-          <button class="chip" data-tts="sarvam">Sarvam</button>
-          <button class="chip" data-tts="cartesia">Cartesia</button>
-          <button class="chip" data-tts="rime">Rime</button>
-        </div>
-      </div>
-      <div class="sel-row" id="voice-row">
-        <span class="sel-lbl">VOICE</span>
-        <div class="chips" id="voice-chips">
-          <span style="opacity:0.4;font-size:11px">Loading…</span>
+        <div class="chips">
+          <button class="chip active" disabled>Anthropic</button>
         </div>
       </div>
     </div>
@@ -538,24 +513,24 @@
             <div class="prov-ico stt">🎤</div>
             <div class="prov-inf">
               <div class="prov-type">STT</div>
-              <div class="prov-name" id="m-stt-name">Sarvam AI</div>
-              <div class="prov-model" id="m-stt-model">saaras:v3 · codemix · ta-IN</div>
+              <div class="prov-name">Deepgram</div>
+              <div class="prov-model">nova-3 · en-IN</div>
             </div>
           </div>
           <div class="prov-row">
             <div class="prov-ico llm">🧠</div>
             <div class="prov-inf">
               <div class="prov-type">LLM</div>
-              <div class="prov-name" id="m-llm-name">Google Gemini</div>
-              <div class="prov-model" id="m-llm-model">gemini-2.0-flash-lite</div>
+              <div class="prov-name">Anthropic</div>
+              <div class="prov-model">claude-haiku-4-5</div>
             </div>
           </div>
           <div class="prov-row">
             <div class="prov-ico tts">🔊</div>
             <div class="prov-inf">
               <div class="prov-type">TTS</div>
-              <div class="prov-name" id="m-tts-name">ElevenLabs</div>
-              <div class="prov-model" id="m-tts-model">eleven_turbo_v2_5 · dual-voice</div>
+              <div class="prov-name">ElevenLabs</div>
+              <div class="prov-model">eleven_turbo_v2_5</div>
             </div>
           </div>
         </div>
@@ -614,33 +589,11 @@
   const States = { IDLE:'idle', CONNECTING:'connecting', LISTENING:'listening', SPEAKING:'speaking' };
   const STATUS  = { idle:'Tap to call Priya', connecting:'Connecting...', listening:'Listening', speaking:'Priya is speaking...' };
 
-  const PROV_INFO = {
-    stt: {
-      sarvam:     { name:'Sarvam AI',    model:'saaras:v3 · codemix · ta-IN' },
-      deepgram:   { name:'Deepgram',     model:'nova-2-general · ta' },
-      elevenlabs: { name:'ElevenLabs',   model:'scribe_v2 · ta · Silero VAD' },
-    },
-    llm: {
-      groq:      { name:'Groq / Meta',   model:'llama-3.3-70b-versatile' },
-      sarvam:    { name:'Sarvam AI',     model:'sarvam-30b · Indian' },
-      anthropic: { name:'Claude Haiku',  model:'claude-haiku-4-5' },
-      opus:      { name:'Claude Opus',   model:'claude-opus-4-7' },
-    },
-    tts: {
-      elevenlabs: { name:'ElevenLabs',  model:'eleven_multilingual_v2' },
-      sarvam:     { name:'Sarvam AI',   model:'bulbul:v3-beta · ta-IN' },
-      cartesia:   { name:'Cartesia',    model:'sonic-3 · ta' },
-      rime:       { name:'Rime AI',     model:'mistv2 · Indian English' },
-    },
-  };
-
   let state = States.IDLE;
   let pc = null, localStream = null, micMuted = false;
   let audioCtx = null, remoteAna = null, localAna = null;
   let rafId = null, animFrame = null, txPollId = null, logPollId = null;
   let timerInterval = null, callStartTs = null, turnCount = 0;
-  let selectedSTT = 'sarvam', selectedLLM = 'groq', selectedTTS = 'elevenlabs', selectedVoice = null;
-  let voiceConfig = {};
   let lastLogCount = 0, logPinned = false, logFilter = 'all';
 
   const orbWrap   = document.getElementById('orb-wrap');
@@ -663,70 +616,6 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-'+name));
   }
 
-  // ── CHIP SELECTORS ─────────────────────────────────────────────────
-  function setupChips(gid, key, setter) {
-    document.querySelectorAll(`#${gid} .chip`).forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (state !== States.IDLE) return;
-        document.querySelectorAll(`#${gid} .chip`).forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        setter(btn.dataset[key]);
-        updateProviders();
-      });
-    });
-  }
-  setupChips('stt-chips','stt', v => selectedSTT = v);
-  setupChips('llm-chips','llm', v => selectedLLM = v);
-  setupChips('tts-chips','tts', v => { selectedTTS = v; renderVoiceChips(v); });
-
-  // ── VOICE CHIPS ────────────────────────────────────────────────────
-  async function loadVoices() {
-    try {
-      const res = await fetch('/voices');
-      voiceConfig = await res.json();
-      renderVoiceChips(selectedTTS);
-    } catch(e) { console.warn('Could not load voices', e); }
-  }
-
-  function renderVoiceChips(tts) {
-    const container = document.getElementById('voice-chips');
-    const voices = (voiceConfig[tts] || []).filter(v => v.id);
-    if (!voices.length) {
-      container.innerHTML = '<span style="opacity:0.4;font-size:11px">No extra voices configured</span>';
-      selectedVoice = null;
-      return;
-    }
-    container.innerHTML = '';
-    voices.forEach((v, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (i === 0 ? ' active' : '');
-      btn.textContent = v.label;
-      btn.dataset.voice = v.id;
-      btn.addEventListener('click', () => {
-        if (state !== States.IDLE) return;
-        container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedVoice = v.id;
-      });
-      container.appendChild(btn);
-    });
-    selectedVoice = voices[0].id;
-  }
-
-  loadVoices();
-
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-  function updateProviders() {
-    document.getElementById('hdr-stt').textContent = cap(selectedSTT);
-    document.getElementById('hdr-llm').textContent = cap(selectedLLM);
-    document.getElementById('hdr-tts').textContent = cap(selectedTTS);
-    const si = PROV_INFO.stt[selectedSTT], li = PROV_INFO.llm[selectedLLM], ti = PROV_INFO.tts[selectedTTS];
-    if (si) { document.getElementById('m-stt-name').textContent = si.name; document.getElementById('m-stt-model').textContent = si.model; }
-    if (li) { document.getElementById('m-llm-name').textContent = li.name; document.getElementById('m-llm-model').textContent = li.model; }
-    if (ti) { document.getElementById('m-tts-name').textContent = ti.name; document.getElementById('m-tts-model').textContent = ti.model; }
-  }
-  updateProviders();
 
   // ── CONSOLE ────────────────────────────────────────────────────────
   const conLines = document.getElementById('con-lines');
@@ -1072,7 +961,7 @@
       const resp = await fetch('/offer', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, stt:selectedSTT, llm:selectedLLM, tts:selectedTTS, voice:selectedVoice }),
+        body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type }),
       });
       if (!resp.ok) throw new Error(`Server ${resp.status}`);
       answer = await resp.json();
