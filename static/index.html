@@ -375,6 +375,118 @@
     /* Error toast */
     .err-toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: rgba(239,68,68,0.9); color: #fff; padding: 0.55rem 1.1rem; border-radius: 8px; font-size: 0.78rem; transition: transform 0.3s; z-index: 100; backdrop-filter: blur(10px); white-space: nowrap; }
     .err-toast.visible { transform: translateX(-50%) translateY(0); }
+
+    /* Demo button */
+    .btn-demo { padding: 0.5rem 1rem; border: 1px solid rgba(240,180,41,0.35); border-radius: 50px; background: transparent; color: #f0b429; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+    .btn-demo:hover { background: rgba(240,180,41,0.08); border-color: rgba(240,180,41,0.6); }
+
+    /* ── DEMO OVERLAY ──────────────────────────────────────────── */
+    #demo-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: #030309;
+      flex-direction: column;
+    }
+    #demo-overlay.visible { display: flex; }
+
+    #demo-overlay::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 800px 600px at 20% 40%, rgba(120,60,200,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 600px 500px at 80% 60%, rgba(30,90,180,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .demo-topbar {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1.6rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+    .demo-brand { display: flex; align-items: center; gap: 0.55rem; }
+    .demo-brand-orb { width: 22px; height: 22px; border-radius: 6px; background: radial-gradient(circle at 38% 35%, #fde68a, #b45309 60%, #1c0a00); box-shadow: 0 0 10px rgba(251,191,36,0.35); }
+    .demo-brand-name { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #f0b429; }
+    .demo-brand-sub  { font-size: 0.58rem; color: #475569; letter-spacing: 0.06em; text-transform: uppercase; }
+    .demo-topbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+    .demo-pill { display: flex; align-items: center; gap: 0.35rem; padding: 0.22rem 0.65rem; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #475569; }
+    .demo-pill .dp { width: 5px; height: 5px; border-radius: 50%; background: #475569; }
+    .demo-pill.listening .dp { background: #22d3ee; animation: blink 1s ease-in-out infinite; }
+    .demo-pill.listening { color: #22d3ee; }
+    .demo-pill.speaking  .dp { background: #fb923c; animation: blink 0.4s ease-in-out infinite; }
+    .demo-pill.speaking  { color: #fb923c; }
+    .demo-pill.connecting .dp { background: #f0b429; animation: blink 0.6s ease-in-out infinite; }
+    .demo-pill.connecting { color: #f0b429; }
+    .btn-demo-action { padding: 0.3rem 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.09); background: transparent; color: #64748b; font-size: 0.65rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-demo-action:hover { border-color: rgba(255,255,255,0.2); color: #94a3b8; }
+    .btn-demo-exit { border-color: rgba(239,68,68,0.25); color: #ef4444; }
+    .btn-demo-exit:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.06); }
+
+    .demo-body { display: flex; flex: 1; overflow: hidden; position: relative; z-index: 1; }
+
+    /* Left — orb */
+    .demo-left {
+      width: 420px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1.2rem; padding: 2rem;
+      border-right: 1px solid rgba(255,255,255,0.04);
+    }
+    .demo-orb-wrap { position: relative; width: 260px; height: 260px; display: flex; align-items: center; justify-content: center; }
+    .demo-orb-canvas { position: absolute; inset: 0; pointer-events: none; }
+    .demo-orb-core {
+      position: relative; width: 186px; height: 186px; border-radius: 50%;
+      background: radial-gradient(circle at 38% 35%, #fde68a 0%, #f0b429 28%, #b45309 58%, #451a03 82%, #1a0800 100%);
+      box-shadow: 0 0 50px rgba(240,180,41,0.3), 0 0 100px rgba(240,180,41,0.12), inset 0 -20px 40px rgba(0,0,0,0.5), inset 0 18px 32px rgba(255,220,100,0.1);
+      cursor: pointer; animation: breathe 4s ease-in-out infinite; transition: all 0.4s ease;
+    }
+    .demo-orb-core::before { content:''; position:absolute; top:14%;left:18%;width:36%;height:24%;background:radial-gradient(ellipse,rgba(255,255,255,0.42) 0%,transparent 70%);border-radius:50%;transform:rotate(-30deg); }
+    .demo-orb-ground { position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:150px;height:22px;background:radial-gradient(ellipse,rgba(240,180,41,0.3) 0%,transparent 70%);filter:blur(7px); }
+
+    /* Demo orb states */
+    #demo-orb-wrap.listening .demo-orb-core { background:radial-gradient(circle at 38% 35%,#a5f3fc 0%,#22d3ee 30%,#0891b2 60%,#0c4a6e 85%,#031e30 100%); box-shadow:0 0 55px rgba(34,211,238,0.5),0 0 110px rgba(34,211,238,0.18),inset 0 -20px 40px rgba(0,0,0,0.5),inset 0 18px 32px rgba(165,243,252,0.12); animation:breathe-f 2.5s ease-in-out infinite; }
+    #demo-orb-wrap.listening .demo-orb-ground { background:radial-gradient(ellipse,rgba(34,211,238,0.4) 0%,transparent 70%); }
+    #demo-orb-wrap.speaking  .demo-orb-core { background:radial-gradient(circle at 38% 35%,#fed7aa 0%,#fb923c 30%,#ea580c 60%,#7c2d12 85%,#280e00 100%); box-shadow:0 0 65px rgba(251,146,60,0.6),0 0 130px rgba(251,146,60,0.22),inset 0 -20px 40px rgba(0,0,0,0.5),inset 0 18px 32px rgba(254,215,170,0.12); animation:speak-bop 0.38s ease-in-out infinite; }
+    #demo-orb-wrap.speaking  .demo-orb-ground { background:radial-gradient(ellipse,rgba(251,146,60,0.5) 0%,transparent 70%); }
+    #demo-orb-wrap.connecting .demo-orb-core { opacity:0.7; animation:breathe-f 1s ease-in-out infinite; }
+
+    .demo-status-txt { font-size: 1rem; color: #94a3b8; letter-spacing: 0.03em; text-align: center; }
+    .demo-mic-ind { display:none; align-items:center; justify-content:center; gap:0.35rem; font-size:0.72rem; color:#22d3ee; }
+    .demo-mic-ind.visible { display:flex; }
+    .demo-mic-dot { width:6px; height:6px; border-radius:50%; background:#22d3ee; animation:blink 1s ease-in-out infinite; }
+
+    .demo-controls { display:flex; gap:0.8rem; align-items:center; }
+    .demo-btn-call {
+      padding: 0.75rem 2.5rem; border:none; border-radius:50px;
+      background: linear-gradient(135deg,#f0b429,#d97706);
+      color:#1a0a00; font-size:0.88rem; font-weight:700; cursor:pointer;
+      letter-spacing:0.06em; text-transform:uppercase;
+      box-shadow:0 4px 20px rgba(240,180,41,0.35); transition:all 0.2s;
+    }
+    .demo-btn-call:hover:not(:disabled) { background:linear-gradient(135deg,#fbbf24,#f0b429); box-shadow:0 4px 30px rgba(240,180,41,0.55); transform:translateY(-1px); }
+    .demo-btn-call:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
+    .demo-btn-call.end { background:linear-gradient(135deg,#ef4444,#b91c1c); box-shadow:0 4px 20px rgba(239,68,68,0.35); }
+    .demo-btn-call.end:hover:not(:disabled) { background:linear-gradient(135deg,#f87171,#ef4444); }
+    .demo-btn-mic { width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#94a3b8; font-size:1.2rem; cursor:pointer; display:none; align-items:center; justify-content:center; transition:all 0.2s; }
+    .demo-btn-mic.visible { display:flex; }
+    .demo-btn-mic:hover { background:rgba(255,255,255,0.09); color:#e2e8f0; }
+    .demo-btn-mic.muted { border-color:rgba(239,68,68,0.45); color:#ef4444; }
+
+    /* Right — conversation */
+    .demo-right { flex:1; display:flex; flex-direction:column; padding:2rem 2.5rem; overflow:hidden; }
+    .demo-conv-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; flex-shrink:0; }
+    .demo-conv-title { font-size:0.62rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#475569; }
+    .demo-tx-scroll { flex:1; overflow-y:auto; }
+    .demo-tx-item { display:flex; gap:0.75rem; padding:0.65rem 0.5rem; border-radius:12px; margin-bottom:0.4rem; }
+    .demo-tx-item:hover { background:rgba(255,255,255,0.02); }
+    .demo-tx-av { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; margin-top:2px; }
+    .demo-tx-item.user  .demo-tx-av { background:rgba(34,211,238,0.1);  border:1px solid rgba(34,211,238,0.22); }
+    .demo-tx-item.priya .demo-tx-av { background:rgba(240,180,41,0.1);  border:1px solid rgba(240,180,41,0.22); }
+    .demo-tx-body { flex:1; min-width:0; }
+    .demo-tx-role { font-size:0.62rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; margin-bottom:0.2rem; }
+    .demo-tx-item.user  .demo-tx-role { color:#22d3ee; }
+    .demo-tx-item.priya .demo-tx-role { color:#f0b429; }
+    .demo-tx-text { font-size:0.92rem; color:#cbd5e1; line-height:1.6; word-break:break-word; }
   </style>
 </head>
 <body>
@@ -466,6 +578,9 @@
     <div class="controls">
       <button class="btn-call" id="control-btn" onclick="handleCallBtn()">Call Priya</button>
       <button class="btn-icon" id="mic-btn" title="Mute/Unmute">🎙️</button>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:0.35rem;">
+      <button class="btn-demo" onclick="openDemo()">▶ Demo Mode</button>
     </div>
     <div class="latency-txt" id="latency"></div>
 
@@ -615,6 +730,53 @@
 </div>
 
 <div class="err-toast" id="err-toast"></div>
+
+<!-- DEMO OVERLAY -->
+<div id="demo-overlay">
+  <div class="demo-topbar">
+    <div class="demo-brand">
+      <div class="demo-brand-orb"></div>
+      <div>
+        <div class="demo-brand-name">Blissy AI</div>
+        <div class="demo-brand-sub">Voice Agent · Priya</div>
+      </div>
+    </div>
+    <div class="demo-topbar-actions">
+      <div class="demo-pill" id="demo-pill"><div class="dp"></div><span id="demo-pill-lbl">Idle</span></div>
+      <button class="btn-demo-action" onclick="clearDemoTranscript()">Clear</button>
+      <button class="btn-demo-action btn-demo-exit" onclick="closeDemo()">✕ Exit Demo</button>
+    </div>
+  </div>
+
+  <div class="demo-body">
+    <!-- ORB -->
+    <div class="demo-left">
+      <div class="demo-orb-wrap" id="demo-orb-wrap">
+        <canvas class="demo-orb-canvas" id="demo-canvas" width="260" height="260"></canvas>
+        <div class="demo-orb-core" onclick="handleDemoOrbClick()"></div>
+        <div class="demo-orb-ground"></div>
+      </div>
+      <div style="text-align:center">
+        <div class="demo-status-txt" id="demo-status-txt">Tap to call Priya</div>
+        <div class="demo-mic-ind" id="demo-mic-ind"><div class="demo-mic-dot"></div><span>Listening…</span></div>
+      </div>
+      <div class="demo-controls">
+        <button class="demo-btn-call" id="demo-ctrl-btn" onclick="handleCallBtn()">Call Priya</button>
+        <button class="demo-btn-mic"  id="demo-mic-btn"  onclick="toggleDemoMic()">🎙️</button>
+      </div>
+    </div>
+
+    <!-- CONVERSATION -->
+    <div class="demo-right">
+      <div class="demo-conv-hdr">
+        <span class="demo-conv-title">Conversation</span>
+      </div>
+      <div class="demo-tx-scroll" id="demo-tx-scroll">
+        <div id="demo-tx-lines"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   const States = { IDLE:'idle', CONNECTING:'connecting', LISTENING:'listening', SPEAKING:'speaking' };
@@ -778,6 +940,30 @@
     pill.querySelector('.s-label').textContent = labels[s];
     document.getElementById('m-state').textContent = labels[s];
 
+    // ── sync demo overlay ──
+    const demoOrbWrap = document.getElementById('demo-orb-wrap');
+    const demoPill    = document.getElementById('demo-pill');
+    const demoStatus  = document.getElementById('demo-status-txt');
+    const demoMicInd  = document.getElementById('demo-mic-ind');
+    const demoCtrlBtn = document.getElementById('demo-ctrl-btn');
+    const demoMicBtn  = document.getElementById('demo-mic-btn');
+    if (demoOrbWrap) {
+      demoOrbWrap.className = `demo-orb-wrap ${s}`;
+      demoPill.className    = `demo-pill ${s}`;
+      document.getElementById('demo-pill-lbl').textContent = labels[s];
+      demoStatus.textContent = STATUS[s];
+      demoMicInd.classList.toggle('visible', s === States.LISTENING);
+      if (s === States.IDLE) {
+        demoCtrlBtn.textContent = 'Call Priya'; demoCtrlBtn.className = 'demo-btn-call'; demoCtrlBtn.disabled = false;
+        demoMicBtn.classList.remove('visible');
+      } else if (s === States.CONNECTING) {
+        demoCtrlBtn.textContent = 'Connecting…'; demoCtrlBtn.className = 'demo-btn-call'; demoCtrlBtn.disabled = true;
+      } else {
+        demoCtrlBtn.textContent = 'End Call'; demoCtrlBtn.className = 'demo-btn-call end'; demoCtrlBtn.disabled = false;
+        demoMicBtn.classList.add('visible');
+      }
+    }
+
     const allChips = document.querySelectorAll('.chip');
     if (s === States.IDLE) {
       controlBtn.textContent = 'Call Priya';
@@ -829,32 +1015,44 @@
   }
 
   // ── ORB VISUALIZER (canvas bars) ──────────────────────────────────
-  function drawBars(ana, color) {
+  const demoCanvas = document.getElementById('demo-canvas');
+  const demoCtx    = demoCanvas.getContext('2d');
+
+  function drawBars(ana, color, c, size) {
     if (!ana) return;
     const data = new Uint8Array(ana.frequencyBinCount);
     ana.getByteFrequencyData(data);
-    const cx = 110, cy = 110, innerR = 88, outerR = 106, bars = 48;
-    ctx2d.clearRect(0,0,220,220);
+    const half = size / 2;
+    const innerR = half * 0.80, outerR = half * 0.97, bars = 48;
+    c.clearRect(0, 0, size, size);
     for (let i = 0; i < bars; i++) {
       const angle = (i/bars) * Math.PI * 2 - Math.PI/2;
       const val   = data[Math.floor(i/bars * data.length)] / 255;
       const barH  = val * (outerR - innerR) + 2;
-      ctx2d.beginPath();
-      ctx2d.moveTo(cx + Math.cos(angle)*innerR, cy + Math.sin(angle)*innerR);
-      ctx2d.lineTo(cx + Math.cos(angle)*(innerR+barH), cy + Math.sin(angle)*(innerR+barH));
-      ctx2d.lineWidth = 2.5;
-      ctx2d.strokeStyle = color;
-      ctx2d.globalAlpha = 0.35 + val * 0.65;
-      ctx2d.stroke();
+      c.beginPath();
+      c.moveTo(half + Math.cos(angle)*innerR, half + Math.sin(angle)*innerR);
+      c.lineTo(half + Math.cos(angle)*(innerR+barH), half + Math.sin(angle)*(innerR+barH));
+      c.lineWidth = 2.5;
+      c.strokeStyle = color;
+      c.globalAlpha = 0.35 + val * 0.65;
+      c.stroke();
     }
-    ctx2d.globalAlpha = 1;
+    c.globalAlpha = 1;
   }
 
   function startVisualizer() {
     function frame() {
-      if      (state === States.SPEAKING  && remoteAna) drawBars(remoteAna, '#fb923c');
-      else if (state === States.LISTENING && localAna)  drawBars(localAna,  '#22d3ee');
-      else ctx2d.clearRect(0,0,220,220);
+      const inDemo = document.getElementById('demo-overlay').classList.contains('visible');
+      if (state === States.SPEAKING && remoteAna) {
+        drawBars(remoteAna, '#fb923c', ctx2d, 220);
+        if (inDemo) drawBars(remoteAna, '#fb923c', demoCtx, 260);
+      } else if (state === States.LISTENING && localAna) {
+        drawBars(localAna, '#22d3ee', ctx2d, 220);
+        if (inDemo) drawBars(localAna, '#22d3ee', demoCtx, 260);
+      } else {
+        ctx2d.clearRect(0,0,220,220);
+        if (inDemo) demoCtx.clearRect(0,0,260,260);
+      }
       animFrame = requestAnimationFrame(frame);
     }
     frame();
@@ -862,6 +1060,7 @@
   function stopVisualizer() {
     if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
     ctx2d.clearRect(0,0,220,220);
+    demoCtx.clearRect(0,0,260,260);
   }
 
   // ── AUDIO LEVEL MONITOR ────────────────────────────────────────────
@@ -923,6 +1122,20 @@
     });
 
     document.getElementById('tx-scroll').scrollTop = 9999;
+
+    // ── mirror to demo ──
+    const demoEl = document.getElementById('demo-tx-lines');
+    if (demoEl) {
+      demoEl.innerHTML = '';
+      lines.forEach(line => {
+        if (line.role !== 'user' && line.role !== 'priya') return;
+        const div = document.createElement('div');
+        div.className = `demo-tx-item ${line.role}`;
+        div.innerHTML = `<div class="demo-tx-av">${AV[line.role]||'·'}</div><div class="demo-tx-body"><div class="demo-tx-role">${ROLE[line.role]||line.role}</div><div class="demo-tx-text">${esc(line.text)}</div></div>`;
+        demoEl.appendChild(div);
+      });
+      document.getElementById('demo-tx-scroll').scrollTop = 9999;
+    }
     if (uTurns !== turnCount) {
       turnCount = uTurns;
       document.getElementById('m-turns').textContent = turnCount;
@@ -1124,7 +1337,41 @@
     localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
     micBtn.classList.toggle('muted', micMuted);
     micBtn.textContent = micMuted ? '🔇' : '🎙️';
+    // sync demo mic button
+    const dmb = document.getElementById('demo-mic-btn');
+    if (dmb) { dmb.classList.toggle('muted', micMuted); dmb.textContent = micMuted ? '🔇' : '🎙️'; }
   });
+
+  // ── DEMO MODE ──────────────────────────────────────────────────────
+  function openDemo() {
+    document.getElementById('demo-overlay').classList.add('visible');
+  }
+
+  function closeDemo() {
+    document.getElementById('demo-overlay').classList.remove('visible');
+  }
+
+  function clearDemoTranscript() {
+    const el = document.getElementById('demo-tx-lines');
+    if (el) el.innerHTML = '';
+  }
+
+  function handleDemoOrbClick() {
+    if (state === States.IDLE) startCall();
+  }
+
+  function toggleDemoMic() {
+    if (!localStream) return;
+    micMuted = !micMuted;
+    localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+    micBtn.classList.toggle('muted', micMuted);
+    micBtn.textContent = micMuted ? '🔇' : '🎙️';
+    const dmb = document.getElementById('demo-mic-btn');
+    if (dmb) { dmb.classList.toggle('muted', micMuted); dmb.textContent = micMuted ? '🔇' : '🎙️'; }
+  }
+
+  // Close demo on Escape key
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDemo(); });
 </script>
 </body>
 </html>
