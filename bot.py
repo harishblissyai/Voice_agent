@@ -23,18 +23,12 @@ from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
+from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
-# ── LLM services ─────────────────────────────────────────────────────────────
-from pipecat.services.groq.llm import GroqLLMService              # Groq / Llama
-from pipecat.services.sarvam.llm import SarvamLLMService          # Sarvam / Indian
-# from pipecat.services.anthropic.llm import AnthropicLLMService  # loaded on demand
-
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
-from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.services.rime.tts import RimeTTSService
 
 load_dotenv()
 
@@ -356,35 +350,11 @@ async def _post_to_n8n(data: dict) -> bool:
 
 def _make_llm(provider: str):
     """Return (llm_service, needs_system_in_context)."""
-    if provider == "sarvam":
-        svc = SarvamLLMService(
-            api_key=os.environ["SARVAM_API_KEY"],
-            settings=SarvamLLMService.Settings(
-                model="sarvam-30b",
-                system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
-                temperature=0.6,
-            ),
-        )
-        return svc, False
-
-    elif provider == "groq":
-        svc = GroqLLMService(
-            api_key=os.environ["GROQ_API_KEY"],
-            settings=GroqLLMService.Settings(
-                model="llama-3.3-70b-versatile",
-                temperature=0.6,
-                max_tokens=300,
-            ),
-        )
-        return svc, True
-
-    elif provider == "anthropic":
-        from pipecat.services.anthropic.llm import AnthropicLLMService
+    if provider == "sonnet":
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
-                model="claude-haiku-4-5-20251001",
+                model="claude-sonnet-4-6",
                 system_instruction=SYSTEM_PROMPT,
                 max_tokens=300,
             ),
@@ -392,7 +362,6 @@ def _make_llm(provider: str):
         return svc, False
 
     elif provider == "opus":
-        from pipecat.services.anthropic.llm import AnthropicLLMService
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
@@ -403,21 +372,21 @@ def _make_llm(provider: str):
         )
         return svc, False
 
-    else:  # default: groq
-        svc = GroqLLMService(
-            api_key=os.environ["GROQ_API_KEY"],
-            settings=GroqLLMService.Settings(
-                model="llama-3.3-70b-versatile",
-                temperature=0.7,
+    else:  # default: anthropic haiku
+        svc = AnthropicLLMService(
+            api_key=os.environ["ANTHROPIC_API_KEY"],
+            settings=AnthropicLLMService.Settings(
+                model="claude-haiku-4-5-20251001",
+                system_instruction=SYSTEM_PROMPT,
                 max_tokens=300,
             ),
         )
-        return svc, True
+        return svc, False
 
 
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
-async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, expressive: bool = False, transcript: deque = None):
+async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, expressive: bool = False, transcript: deque = None):
     logger.info(f"Starting bot — STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider} | Voice: {voice_id or 'default'}")
     if transcript is not None:
         transcript.append({"role": "system", "text": f"Call started | STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}"})
@@ -528,82 +497,6 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
             pair.assistant(),
         ])
 
-    elif tts_provider == "sarvam":
-        tts_node = SarvamTTSService(
-            api_key=os.environ["SARVAM_API_KEY"],
-            settings=SarvamTTSService.Settings(
-                model="bulbul:v3-beta",
-                language=Language.TA_IN,
-                voice=voice_id or "simran",
-                pace=1.0,
-            ),
-        )
-        lang_switcher = SarvamLangSwitcher(tts_node, language_state)
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            lang_switcher,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
-
-    elif tts_provider == "rime":
-        tts_node = RimeTTSService(
-            api_key=os.environ["RIME_API_KEY"],
-            settings=RimeTTSService.Settings(
-                model="mistv2",
-                voice=voice_id or "indira",
-            ),
-        )
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
-
-    else:  # cartesia — single Tamil voice, no language switching
-        tts_node = CartesiaTTSService(
-            api_key=os.environ["CARTESIA_API_KEY"],
-            settings=CartesiaTTSService.Settings(
-                model="sonic-3",
-                voice=voice_id or os.environ["CARTESIA_VOICE_ID"],
-                language=Language.TA,
-            ),
-        )
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
 
     task = PipelineTask(pipeline)
 

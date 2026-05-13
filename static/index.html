@@ -552,9 +552,8 @@
       <div class="sel-row">
         <span class="sel-lbl">LLM</span>
         <div class="chips" id="llm-chips">
-          <button class="chip active" data-llm="groq">Groq</button>
-          <button class="chip" data-llm="sarvam">Sarvam</button>
-          <button class="chip" data-llm="anthropic">Haiku</button>
+          <button class="chip active" data-llm="anthropic">Haiku</button>
+          <button class="chip" data-llm="sonnet">Sonnet</button>
           <button class="chip" data-llm="opus">Opus</button>
         </div>
       </div>
@@ -562,9 +561,6 @@
         <span class="sel-lbl">TTS</span>
         <div class="chips" id="tts-chips">
           <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
-          <button class="chip" data-tts="sarvam">Sarvam</button>
-          <button class="chip" data-tts="cartesia">Cartesia</button>
-          <button class="chip" data-tts="rime">Rime</button>
         </div>
       </div>
       <div class="sel-row" id="voice-row">
@@ -817,16 +813,12 @@
       elevenlabs: { name:'ElevenLabs',   model:'scribe_v2 · ta · Silero VAD' },
     },
     llm: {
-      groq:      { name:'Groq / Meta',   model:'llama-3.3-70b-versatile' },
-      sarvam:    { name:'Sarvam AI',     model:'sarvam-30b · Indian' },
       anthropic: { name:'Claude Haiku',  model:'claude-haiku-4-5' },
+      sonnet:    { name:'Claude Sonnet', model:'claude-sonnet-4-6' },
       opus:      { name:'Claude Opus',   model:'claude-opus-4-7' },
     },
     tts: {
-      elevenlabs: { name:'ElevenLabs',  model:'eleven_multilingual_v2' },
-      sarvam:     { name:'Sarvam AI',   model:'bulbul:v3-beta · ta-IN' },
-      cartesia:   { name:'Cartesia',    model:'sonic-3 · ta' },
-      rime:       { name:'Rime AI',     model:'mistv2 · Indian English' },
+      elevenlabs: { name:'ElevenLabs',  model:'eleven_turbo_v2_5' },
     },
   };
 
@@ -835,7 +827,7 @@
   let audioCtx = null, remoteAna = null, localAna = null;
   let rafId = null, animFrame = null, txPollId = null, logPollId = null;
   let timerInterval = null, callStartTs = null, turnCount = 0;
-  let selectedSTT = 'sarvam', selectedLLM = 'groq', selectedTTS = 'elevenlabs', selectedVoice = null;
+  let selectedSTT = 'sarvam', selectedLLM = 'anthropic', selectedTTS = 'elevenlabs', selectedVoice = null;
   let expressive = false;
   let voiceConfig = {};
   let lastLogCount = 0, logPinned = false, logFilter = 'all';

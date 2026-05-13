@@ -104,7 +104,7 @@ async def get_voices():
 @app.post("/offer")
 async def offer(request: Request):
     body = await request.json()
-    llm_provider = body.pop("llm", "groq")
+    llm_provider = body.pop("llm", "anthropic")
     tts_provider = body.pop("tts", "elevenlabs")
     stt_provider = body.pop("stt", "sarvam")
     voice_id     = body.pop("voice", None)
