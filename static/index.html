@@ -1342,7 +1342,13 @@
   let demoConvOpen = false;
 
   function openDemo() {
-    document.getElementById('demo-overlay').classList.add('visible');
+    const params = new URLSearchParams({
+      llm: selectedLLM,
+      stt: selectedSTT,
+      tts: selectedTTS,
+      expressive: expressive ? '1' : '0',
+    });
+    window.open('/demo?' + params.toString(), '_blank');
   }
 
   function closeDemo() {

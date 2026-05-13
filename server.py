@@ -72,6 +72,11 @@ async def serve_index():
     return FileResponse("static/index.html")
 
 
+@app.get("/demo")
+async def serve_demo():
+    return FileResponse("static/demo.html")
+
+
 @app.get("/voices")
 async def get_voices():
     def _ev(key): return os.environ.get(key, "")

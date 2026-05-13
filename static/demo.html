@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blissy AI Voice Agents</title>
+  <meta name="description" content="AI Voice Agents that handle calls, bookings, and customer interactions automatically." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          animation: {
+            'fade-in': 'fadeIn 0.8s ease-out forwards',
+            'fade-up': 'fadeUp 0.8s ease-out forwards',
+            'float': 'float 3s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            fadeUp:  { '0%': { opacity: '0', transform: 'translateY(24px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            float:   { '0%,100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-8px)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{background:#ffffff;color:#1e293b;font-family:'Inter',sans-serif;overflow-x:hidden;}
+
+    .reveal{opacity:0;transform:translateY(24px);transition:opacity 0.6s ease-out,transform 0.6s ease-out;}
+    .reveal.visible{opacity:1;transform:translateY(0);}
+
+    .glass{background:#ffffff;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+    .glow-green{box-shadow:0 0 0 1px rgba(59,130,246,0.2),0 4px 24px rgba(59,130,246,0.1);}
+    .glow-green-hover:hover{box-shadow:0 0 0 1px rgba(59,130,246,0.3),0 8px 32px rgba(59,130,246,0.12);}
+    .gradient-text{background:linear-gradient(135deg,#2563eb 0%,#4f46e5 55%,#7c3aed 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .bg-grid{background-color:#ffffff;background-image:linear-gradient(rgba(59,130,246,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.06) 1px,transparent 1px);background-size:72px 72px;}
+    .bg-radial-green{background:radial-gradient(ellipse 80% 40% at 50% -5%,rgba(59,130,246,0.07),transparent);}
+    .nav-glass{background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #e2e8f0;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
+    .border-green-glow{border:1px solid rgba(59,130,246,0.25);box-shadow:0 4px 24px rgba(59,130,246,0.08);}
+    .hero-orb{background:radial-gradient(circle,rgba(59,130,246,0.08) 0%,transparent 70%);filter:blur(48px);}
+
+    .btn-primary{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;font-weight:600;border-radius:8px;padding:12px 28px;transition:all 0.25s ease;box-shadow:0 2px 12px rgba(59,130,246,0.3);}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,0.4);background:linear-gradient(135deg,#1e40af,#2563eb);}
+    .btn-secondary{background:#f8fafc;color:#1e293b;font-weight:500;border-radius:8px;padding:12px 28px;border:1px solid #e2e8f0;transition:all 0.25s ease;}
+    .btn-secondary:hover{background:#eff6ff;border-color:rgba(59,130,246,0.3);transform:translateY(-1px);}
+
+    #mobile-menu{display:none;}
+    #mobile-menu.open{display:block;}
+
+    /* ── CALL CONTROLS ─────────────────────────────────────────── */
+    #call-controls{
+      display:none;flex-direction:row;align-items:center;gap:0.75rem;
+      padding:0.5rem 1rem;border-radius:40px;
+      background:rgba(255,255,255,0.12);border:1px solid rgba(59,130,246,0.2);
+      backdrop-filter:blur(12px);
+    }
+    .call-btn{
+      display:flex;align-items:center;gap:0.4rem;
+      padding:0.5rem 1.1rem;border-radius:20px;border:none;
+      font-size:0.7rem;font-weight:700;letter-spacing:0.05em;cursor:pointer;
+      transition:all 0.2s ease;
+    }
+    .call-btn-mute{background:rgba(59,130,246,0.12);color:#2563eb;border:1px solid rgba(59,130,246,0.25);}
+    .call-btn-mute:hover{background:rgba(59,130,246,0.2);}
+    .call-btn-mute.muted{background:rgba(239,68,68,0.1);color:#ef4444;border-color:rgba(239,68,68,0.3);}
+    .call-btn-end{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);}
+    .call-btn-end:hover{background:rgba(239,68,68,0.18);}
+
+    /* ── TRANSCRIPT ────────────────────────────────────────────── */
+    #real-transcript{
+      display:none;width:100%;max-height:200px;overflow-y:auto;
+      padding:0.75rem 1rem;border-radius:16px;
+      background:rgba(248,250,252,0.8);border:1px solid #e2e8f0;
+      font-size:0.78rem;line-height:1.6;
+    }
+    .tx-row{display:flex;gap:0.6rem;margin-bottom:0.5rem;align-items:flex-start;}
+    .tx-badge{flex-shrink:0;padding:0.15rem 0.5rem;border-radius:8px;font-size:0.6rem;font-weight:700;letter-spacing:0.06em;margin-top:0.1rem;}
+    .tx-badge.user{background:rgba(59,130,246,0.1);color:#2563eb;}
+    .tx-badge.priya{background:rgba(99,102,241,0.1);color:#4f46e5;}
+    .tx-text{color:#334155;}
+    #real-transcript::-webkit-scrollbar{width:3px;}
+    #real-transcript::-webkit-scrollbar-track{background:transparent;}
+    #real-transcript::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:99px;}
+
+    /* ── CONNECTING ANIMATION ──────────────────────────────────── */
+    #connect-indicator{
+      display:none;flex-direction:column;align-items:center;gap:0.4rem;
+      font-size:0.72rem;color:#64748b;letter-spacing:0.05em;
+    }
+    .connect-dots{display:flex;gap:0.3rem;}
+    .connect-dot{width:6px;height:6px;border-radius:50%;background:#3b82f6;animation:dotPulse 1.2s ease-in-out infinite;}
+    .connect-dot:nth-child(2){animation-delay:0.2s;}
+    .connect-dot:nth-child(3){animation-delay:0.4s;}
+    @keyframes dotPulse{0%,80%,100%{transform:scale(0.6);opacity:0.4;}40%{transform:scale(1);opacity:1;}}
+
+    /* Light-mode overrides */
+    body{color:#334155;}
+    h1,h2,h3{color:#0f172a;}
+    .text-zinc-400{color:#64748b!important;}
+    .text-zinc-500{color:#94a3b8!important;}
+    .text-zinc-600{color:#64748b!important;}
+    .text-zinc-200{color:#334155!important;}
+    .text-zinc-100{color:#0f172a!important;}
+    :not(button):not(.btn-primary):not(.btn-secondary):not([style*="background: linear-gradient"]).text-white{color:#0f172a!important;}
+    .border-white\/5{border-color:#e2e8f0!important;}
+    section .border-t,section .border-b{border-color:#e2e8f0!important;}
+    .glass{background:#ffffff!important;border-color:#e2e8f0!important;box-shadow:0 1px 6px rgba(0,0,0,0.06)!important;}
+    .rounded-full.glass{background:#eff6ff!important;border-color:rgba(59,130,246,0.2)!important;box-shadow:none!important;}
+    .absolute.bg-zinc-950{background-color:#1e293b!important;z-index:20!important;}
+    .via-green-500\/30{--tw-gradient-stops:transparent,rgba(59,130,246,0.2),transparent!important;}
+    input,textarea{background:#f8fafc!important;border-color:#e2e8f0!important;color:#0f172a!important;}
+    input:focus,textarea:focus{background:#ffffff!important;border-color:rgba(59,130,246,0.5)!important;}
+    input::placeholder,textarea::placeholder{color:#94a3b8!important;}
+    footer{background:#f8fafc;border-top:1px solid #e2e8f0;}
+    footer .border-t{border-color:#e2e8f0!important;}
+    nav a{color:#475569!important;}
+    nav a:hover{color:#2563eb!important;}
+    nav .text-white{color:#0f172a!important;}
+    .border-t.border-b.border-white\/5{border-color:#e2e8f0!important;background:#f8fafc;}
+    #demo-interface>div:last-child{background:linear-gradient(160deg,#f8fafc 0%,#ffffff 100%)!important;border-color:rgba(59,130,246,0.2)!important;box-shadow:0 8px 48px rgba(59,130,246,0.08),0 1px 0 #e2e8f0!important;}
+    #demo-interface [style*="background: rgba(0,0,0,0.15)"]{background:#f1f5f9!important;}
+    #demo-interface [style*="background: rgba(0,0,0,0.12)"]{background:#f8fafc!important;}
+    .prompt-chip{background:#f1f5f9!important;border-color:#e2e8f0!important;color:#475569!important;}
+    #ai-orb::after{background:#1e293b!important;color:#93c5fd!important;}
+    .border-green-glow{border-color:rgba(59,130,246,0.2)!important;box-shadow:0 4px 32px rgba(59,130,246,0.07)!important;}
+    .btn-primary,.btn-primary *{color:#ffffff!important;}
+    .btn-secondary{color:#1e293b!important;}
+  </style>
+</head>
+<body class="bg-grid">
+
+  <div class="fixed inset-0 bg-radial-green pointer-events-none z-0"></div>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#3b82f6);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="white"/></svg>
+          </div>
+          <span class="font-bold text-lg tracking-tight" style="color:#0f172a;">Blissy <span class="gradient-text">Voice Agent</span></span>
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="#demo" class="text-sm font-medium transition-colors duration-200">Demo</a>
+          <a href="#use-cases" class="text-sm font-medium transition-colors duration-200">Use Cases</a>
+          <a href="#how-it-works" class="text-sm font-medium transition-colors duration-200">How It Works</a>
+          <a href="#contact" class="text-sm font-medium transition-colors duration-200">Contact</a>
+        </div>
+        <div class="hidden md:flex items-center gap-3">
+          <button onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})" class="btn-primary text-sm">Try Demo →</button>
+        </div>
+        <button id="hamburger" class="md:hidden p-2" onclick="toggleMenu()" style="color:#64748b;">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </div>
+      <div id="mobile-menu" class="md:hidden pb-4">
+        <div class="flex flex-col gap-3 pt-2 border-t border-white/5">
+          <a href="#demo" class="text-sm font-medium py-2 transition-colors" onclick="toggleMenu()">Demo</a>
+          <a href="#use-cases" class="text-sm font-medium py-2 transition-colors" onclick="toggleMenu()">Use Cases</a>
+          <a href="#how-it-works" class="text-sm font-medium py-2 transition-colors" onclick="toggleMenu()">How It Works</a>
+          <a href="#contact" class="text-sm font-medium py-2 transition-colors" onclick="toggleMenu()">Contact</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="relative min-h-screen flex items-center pt-16 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden z-10">
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 hero-orb pointer-events-none"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-64 h-64 hero-orb pointer-events-none"></div>
+    <div class="max-w-7xl mx-auto w-full">
+      <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div class="animate-fade-up" style="animation-delay:0.1s;">
+          <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-8 border border-green-500/20">
+            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">AI Voice Agents · Live</span>
+          </div>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-6">
+            Never Miss a Call.<br /><span class="gradient-text">Never Miss an</span><br />Opportunity.
+          </h1>
+          <p class="text-lg sm:text-xl leading-relaxed mb-10 max-w-lg" style="color:#64748b;">
+            AI Voice Agents that handle calls, bookings, and customer interactions automatically — so your business runs 24/7 without lifting a finger.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <button onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})" class="btn-primary inline-flex items-center justify-center gap-2 text-base">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+              Live Demo
+            </button>
+          </div>
+          <div class="mt-12 flex flex-wrap items-center gap-6">
+            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.1);"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="text-sm" style="color:#64748b;">No code required</span></div>
+            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.1);"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="text-sm" style="color:#64748b;">Live in 7 days</span></div>
+            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.1);"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="text-sm" style="color:#64748b;">Works 24/7</span></div>
+          </div>
+        </div>
+        <div class="flex justify-center lg:justify-end animate-fade-up" style="animation-delay:0.3s;">
+          <div class="relative w-full max-w-md">
+            <div class="absolute inset-0 rounded-2xl" style="background:radial-gradient(ellipse at center,rgba(59,130,246,0.2) 0%,transparent 70%);filter:blur(30px);transform:scale(1.1);"></div>
+            <div class="relative glass rounded-2xl border-green-glow p-6 animate-float">
+              <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#3b82f6);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+                  <div><p class="font-semibold text-sm" style="color:#0f172a;">Table Reservation Agent</p><div class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div><p class="text-xs" style="color:#22c55e;">Live &amp; Active</p></div></div>
+                </div>
+                <div class="glass rounded-lg px-2 py-1"><span class="text-xs" style="color:#64748b;">24/7</span></div>
+              </div>
+              <div class="space-y-3 mb-5">
+                <div class="flex gap-2"><div class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#3b82f6);"><span class="text-xs text-white">V</span></div><div class="glass rounded-xl rounded-tl-sm px-3 py-2 max-w-xs"><p class="text-xs leading-relaxed" style="color:#334155;">Hello! Thanks for calling Blissy. How can I help you today?</p></div></div>
+                <div class="flex gap-2 justify-end"><div class="rounded-xl rounded-tr-sm px-3 py-2 max-w-xs" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.2);"><p class="text-xs leading-relaxed" style="color:#334155;">I'd like to book a table for 4 this Saturday evening.</p></div></div>
+                <div class="flex gap-2"><div class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#3b82f6);"><span class="text-xs text-white">V</span></div><div class="glass rounded-xl rounded-tl-sm px-3 py-2 max-w-xs"><p class="text-xs leading-relaxed" style="color:#334155;">Perfect! We have a great table for 4 at 7:30 PM. Shall I confirm that?</p></div></div>
+              </div>
+              <div class="grid grid-cols-3 gap-3 mt-4">
+                <div class="text-center"><p class="font-bold text-sm" style="color:#3b82f6;">98%</p><p class="text-xs" style="color:#94a3b8;">Answer rate</p></div>
+                <div class="text-center border-x border-white/5"><p class="font-bold text-sm" style="color:#3b82f6;">&lt;1s</p><p class="text-xs" style="color:#94a3b8;">Response</p></div>
+                <div class="text-center"><p class="font-bold text-sm" style="color:#3b82f6;">24/7</p><p class="text-xs" style="color:#94a3b8;">Uptime</p></div>
+              </div>
+            </div>
+            <div class="absolute -top-3 -right-3 glass rounded-full px-3 py-1.5" style="border:1px solid rgba(59,130,246,0.3);"><span class="text-xs font-semibold flex items-center gap-1" style="color:#3b82f6;">AI Powered</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="relative z-10 border-t border-b py-10 px-4" style="border-color:#e2e8f0;background:#f8fafc;">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center reveal">
+        <div><p class="text-3xl sm:text-4xl font-black gradient-text">10x</p><p class="text-sm mt-1" style="color:#94a3b8;">Faster Response</p></div>
+        <div><p class="text-3xl sm:text-4xl font-black gradient-text">98%</p><p class="text-sm mt-1" style="color:#94a3b8;">Call Answer Rate</p></div>
+        <div><p class="text-3xl sm:text-4xl font-black gradient-text">60%</p><p class="text-sm mt-1" style="color:#94a3b8;">Cost Reduction</p></div>
+        <div><p class="text-3xl sm:text-4xl font-black gradient-text">24/7</p><p class="text-sm mt-1" style="color:#94a3b8;">Always Available</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE DEMO -->
+  <section id="demo" class="relative z-10 py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div class="max-w-3xl mx-auto">
+      <div class="text-center mb-10 reveal">
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-5" style="border:1px solid rgba(59,130,246,0.2);">
+          <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          <span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">Interactive Demo</span>
+        </div>
+        <h2 class="text-2xl sm:text-4xl lg:text-5xl font-black mb-3 leading-tight">
+          Live Demo — <span class="gradient-text">Table Reservation Agent</span>
+        </h2>
+        <p class="text-base sm:text-lg max-w-lg mx-auto leading-relaxed" style="color:#64748b;">
+          Talk directly to Priya, our AI voice agent — just like a real customer would.
+        </p>
+      </div>
+
+      <!-- Interface card -->
+      <div class="reveal" style="transition-delay:0.1s;">
+        <div class="relative" id="demo-interface">
+          <div class="absolute inset-0 rounded-3xl pointer-events-none" style="background:radial-gradient(ellipse 80% 60% at 50% 55%,rgba(59,130,246,0.16) 0%,transparent 70%);filter:blur(50px);transform:scale(1.08);"></div>
+          <div class="relative rounded-3xl overflow-hidden" style="background:linear-gradient(160deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%);backdrop-filter:blur(24px);border:1px solid rgba(59,130,246,0.22);box-shadow:0 0 0 1px rgba(255,255,255,0.04) inset,0 24px 64px rgba(0,0,0,0.5),0 0 50px rgba(59,130,246,0.07);">
+            <div id="demo-scan-line"></div>
+            <div class="w-full h-px" style="background:linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.6) 30%,rgba(147,197,253,0.8) 50%,rgba(59,130,246,0.6) 70%,transparent 100%);"></div>
+
+            <!-- Top bar -->
+            <div class="flex items-center justify-between px-5 pt-4 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.15);">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="relative flex-shrink-0">
+                  <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);box-shadow:0 0 16px rgba(59,130,246,0.4);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+                  <div id="live-dot" class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2" style="background:#94a3b8;border-color:#f8fafc;transition:background 0.3s;"></div>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-bold text-xs sm:text-sm tracking-tight truncate" style="color:#0f172a;">Blissy Voice Agent · Table Reservation</p>
+                  <p class="text-xs" style="color:#94a3b8;">AI Voice · <span id="model-label">Priya</span></p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <div id="status-chips">
+                  <div id="chip-idle" class="status-chip flex items-center gap-1.5 rounded-full px-2.5 py-1" style="background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);">
+                    <div class="w-1.5 h-1.5 rounded-full" style="background:#94a3b8;"></div>
+                    <span class="text-xs font-semibold" style="color:#94a3b8;">Ready</span>
+                  </div>
+                  <div id="chip-connecting" class="status-chip hidden flex items-center gap-1.5 rounded-full px-2.5 py-1" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);">
+                    <div class="w-1.5 h-1.5 rounded-full" style="background:#f0b429;animation:blink 0.6s ease-in-out infinite;"></div>
+                    <span class="text-xs font-semibold" style="color:#f0b429;">Connecting</span>
+                  </div>
+                  <div id="chip-listening" class="status-chip hidden flex items-center gap-1.5 rounded-full px-2.5 py-1" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);box-shadow:0 0 10px rgba(59,130,246,0.15);">
+                    <div class="w-1.5 h-1.5 rounded-full" style="background:#3b82f6;animation:blink 1s ease-in-out infinite;"></div>
+                    <span class="text-xs font-semibold" style="color:#3b82f6;">Listening</span>
+                  </div>
+                  <div id="chip-speaking" class="status-chip hidden flex items-center gap-1.5 rounded-full px-2.5 py-1" style="background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.3);">
+                    <div class="w-1.5 h-1.5 rounded-full" style="background:#fb923c;animation:blink 0.4s ease-in-out infinite;"></div>
+                    <span class="text-xs font-semibold" style="color:#fb923c;">Speaking</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Center stage -->
+            <div class="relative flex flex-col items-center justify-center py-10 px-5" style="background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(59,130,246,0.04) 0%,transparent 70%);">
+              <div id="wave-field" class="absolute inset-x-0 pointer-events-none" style="top:50%;transform:translateY(-50%);height:90px;">
+                <div class="relative w-full h-full flex items-center justify-center overflow-hidden">
+                  <div class="wave-line" style="--delay:0s;"></div>
+                  <div class="wave-line" style="--delay:0.15s;"></div>
+                  <div class="wave-line" style="--delay:0.3s;"></div>
+                  <div class="wave-line" style="--delay:0.45s;"></div>
+                  <div class="wave-line" style="--delay:0.6s;"></div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 mb-5 z-10">
+                <div class="h-px w-10" style="background:linear-gradient(90deg,transparent,rgba(59,130,246,0.5));"></div>
+                <span class="text-xs font-semibold uppercase tracking-widest" style="color:#94a3b8;">Voice AI Engine</span>
+                <div class="h-px w-10" style="background:linear-gradient(90deg,rgba(59,130,246,0.5),transparent);"></div>
+              </div>
+
+              <!-- Orb -->
+              <div id="ai-orb-wrapper" class="demo-orb-wrapper relative flex items-center justify-center mb-6">
+                <div id="orb-ring-3" class="orb-ring absolute rounded-full demo-ring-3" style="border:1px solid rgba(59,130,246,0.07);background:radial-gradient(circle,rgba(59,130,246,0.02) 0%,transparent 70%);"></div>
+                <div id="orb-ring-2" class="orb-ring absolute rounded-full demo-ring-2" style="border:1px solid rgba(59,130,246,0.13);background:radial-gradient(circle,rgba(59,130,246,0.03) 0%,transparent 70%);"></div>
+                <div id="orb-ring-1" class="orb-ring absolute rounded-full demo-ring-1" style="border:1px solid rgba(59,130,246,0.22);background:radial-gradient(circle,rgba(59,130,246,0.05) 0%,transparent 70%);"></div>
+                <canvas id="orb-canvas" class="absolute" style="pointer-events:none;border-radius:50%;"></canvas>
+                <div id="ai-orb" class="demo-orb relative rounded-full flex items-center justify-center cursor-pointer z-10" style="background:radial-gradient(circle at 32% 32%,#93c5fd 0%,#3b82f6 35%,#1d4ed8 65%,#0c1a6e 100%);box-shadow:0 0 0 1px rgba(147,197,253,0.3) inset,0 0 40px rgba(59,130,246,0.55),0 0 80px rgba(59,130,246,0.2),0 8px 24px rgba(0,0,0,0.5);" onclick="handleOrbClick()">
+                  <div class="absolute top-3 left-4 w-5 h-2.5 rounded-full" style="background:rgba(255,255,255,0.35);filter:blur(3px);transform:rotate(-20deg);"></div>
+                  <div class="demo-orb-core rounded-full" style="background:radial-gradient(circle,rgba(255,255,255,0.55) 0%,rgba(147,197,253,0.25) 55%,transparent 100%);filter:blur(2px);"></div>
+                </div>
+              </div>
+
+              <!-- EQ bars (driven by real audio) -->
+              <canvas id="eq-canvas" width="120" height="32" style="margin-bottom:1.75rem;opacity:0.85;"></canvas>
+
+              <!-- Controls: idle = start btn, active = mute+end -->
+              <button id="btn-start-call" onclick="startCall()" class="btn-primary flex items-center gap-2 text-sm px-6 py-3 z-10">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>
+                Start a Conversation
+              </button>
+
+              <div id="call-controls">
+                <button id="btn-mute" class="call-btn call-btn-mute" onclick="toggleMute()">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+                  <span id="mute-label">Mute</span>
+                </button>
+                <button class="call-btn call-btn-end" onclick="cleanup()">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 3.75 18 6m0 0 2.25 2.25M18 6l2.25-2.25M18 6l-2.25 2.25m1.5 13.5c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 0 1 4.5 2.25h1.372c.516 0 .966.351 1.091.852l1.106 4.423c.11.44-.054.902-.417 1.173l-1.293.97a1.062 1.062 0 0 0-.38 1.21 12.035 12.035 0 0 0 7.143 7.143c.441.162.928-.004 1.21-.38l.97-1.293a1.125 1.125 0 0 1 1.173-.417l4.423 1.106c.5.125.852.575.852 1.091V19.5a2.25 2.25 0 0 1-2.25 2.25h-2.25Z"/></svg>
+                  End Call
+                </button>
+              </div>
+
+              <!-- Connect indicator -->
+              <div id="connect-indicator">
+                <div class="connect-dots">
+                  <div class="connect-dot"></div><div class="connect-dot"></div><div class="connect-dot"></div>
+                </div>
+                <span>Connecting to Priya…</span>
+              </div>
+            </div>
+
+            <!-- Bottom: transcript (during call) + prompts (idle) -->
+            <div class="px-5 pb-5" style="border-top:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.12);">
+              <!-- Real transcript feed -->
+              <div id="real-transcript">
+                <div id="tx-lines"></div>
+              </div>
+
+              <!-- Idle prompt chips -->
+              <div id="prompt-section">
+                <div class="flex items-center gap-2 pt-4 mb-3">
+                  <div class="w-1 h-3 rounded-full flex-shrink-0" style="background:#3b82f6;box-shadow:0 0 6px rgba(59,130,246,0.8);"></div>
+                  <p class="text-xs font-semibold uppercase tracking-widest" style="color:#94a3b8;">Try asking</p>
+                </div>
+                <div id="prompt-chips" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Book a table for 4 this Saturday"</button>
+                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Do you have outdoor seating?"</button>
+                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"What are your opening hours?"</button>
+                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Can I modify my reservation?"</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- USE CASES -->
+  <section id="use-cases" class="relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-14 reveal">
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6" style="border:1px solid rgba(59,130,246,0.2);"><span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">Industries We Serve</span></div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black mb-4">Built for <span class="gradient-text">Every Industry</span></h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color:#64748b;">Custom AI voice agents trained for your specific use case, terminology, and workflows.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 reveal" style="transition-delay:0.1s;">
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover border-green-glow" onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})">
+          <div class="absolute top-4 right-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background:rgba(59,130,246,0.1);color:#2563eb;border:1px solid rgba(59,130,246,0.25);">⦿ Live Demo</span></div>
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05));"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Table Reservation</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Handle table bookings, availability queries, special requests, and confirmations automatically.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#3b82f6;">Try Live Demo <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover" onclick="showForm('Healthcare Appointments')">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03));">🏥</div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Healthcare Appointments</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Schedule appointments, send reminders, handle patient queries, and manage follow-ups automatically.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#94a3b8;">Request Agent <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover" onclick="showForm('Financial Services')">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03));">💳</div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Financial Services</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Answer account queries, assist with loan applications, and handle routine banking calls compliantly.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#94a3b8;">Request Agent <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover" onclick="showForm('Retail Support')">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03));">🛍️</div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Retail Support</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Handle order status, returns, product questions, and loyalty program enquiries without human agents.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#94a3b8;">Request Agent <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover" onclick="showForm('Travel Assistance')">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03));">✈️</div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Travel Assistance</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Book flights, manage itineraries, handle cancellations, and provide real-time travel support.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#94a3b8;">Request Agent <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+        <div class="group glass rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:scale-[1.03] glow-green-hover" onclick="showForm('Telecom Support')">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03));">📡</div>
+          <h3 class="font-bold text-lg mb-2" style="color:#0f172a;">Telecom Support</h3>
+          <p class="text-sm leading-relaxed mb-5" style="color:#64748b;">Manage billing queries, plan upgrades, outage notifications, and technical troubleshooting calls.</p>
+          <div class="flex items-center gap-2 text-sm font-medium" style="color:#94a3b8;">Request Agent <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></div>
+        </div>
+      </div>
+      <div class="text-center mt-10 reveal" style="transition-delay:0.2s;">
+        <p class="text-sm" style="color:#94a3b8;">Don't see your industry? <a href="#contact" onclick="showForm('Custom Industry')" class="font-medium ml-1 transition-colors" style="color:#3b82f6;">We build custom agents for any use case →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY BLISSY -->
+  <section class="relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-14 reveal">
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6" style="border:1px solid rgba(59,130,246,0.2);"><span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">Why Choose Us</span></div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black mb-4">Why <span class="gradient-text">Blissy Voice Agent</span></h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color:#64748b;">Built for businesses that can't afford to miss a single opportunity — day or night.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="reveal group glass rounded-2xl p-7 transition-all duration-300 hover:scale-[1.03] glow-green-hover" style="transition-delay:0s;">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110" style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05));"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/></svg></div>
+          <h3 class="font-bold text-lg mb-3" style="color:#0f172a;">Answers Every Call</h3>
+          <p class="text-sm leading-relaxed" style="color:#64748b;">Zero missed calls, zero hold music. Your AI agent picks up instantly — every single time, even during peak hours or holidays.</p>
+          <div class="mt-5 pt-5" style="border-top:1px solid #e2e8f0;"><span class="text-xs font-semibold" style="color:#3b82f6;">100% pickup rate</span></div>
+        </div>
+        <div class="reveal group glass rounded-2xl p-7 transition-all duration-300 hover:scale-[1.03] glow-green-hover" style="transition-delay:0.08s;">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110" style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05));"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/></svg></div>
+          <h3 class="font-bold text-lg mb-3" style="color:#0f172a;">Sounds Human</h3>
+          <p class="text-sm leading-relaxed" style="color:#64748b;">Powered by ElevenLabs' best-in-class voice synthesis — natural tone, perfect pacing, and fluid conversations your customers will love.</p>
+          <div class="mt-5 pt-5" style="border-top:1px solid #e2e8f0;"><span class="text-xs font-semibold" style="color:#3b82f6;">Human-like quality</span></div>
+        </div>
+        <div class="reveal group glass rounded-2xl p-7 transition-all duration-300 hover:scale-[1.03] glow-green-hover" style="transition-delay:0.16s;">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110" style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05));"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></div>
+          <h3 class="font-bold text-lg mb-3" style="color:#0f172a;">Works 24/7</h3>
+          <p class="text-sm leading-relaxed" style="color:#64748b;">No shifts, no sick days, no overtime. Your agent is live around the clock — handling customers while you sleep, travel, or focus on growth.</p>
+          <div class="mt-5 pt-5" style="border-top:1px solid #e2e8f0;"><span class="text-xs font-semibold" style="color:#3b82f6;">365 days a year</span></div>
+        </div>
+        <div class="reveal group glass rounded-2xl p-7 transition-all duration-300 hover:scale-[1.03] glow-green-hover" style="transition-delay:0.24s;">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110" style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05));"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg></div>
+          <h3 class="font-bold text-lg mb-3" style="color:#0f172a;">Drives Revenue</h3>
+          <p class="text-sm leading-relaxed" style="color:#64748b;">Every answered call is a potential sale. Our agents upsell, cross-sell, and close bookings — turning enquiries into confirmed revenue instantly.</p>
+          <div class="mt-5 pt-5" style="border-top:1px solid #e2e8f0;"><span class="text-xs font-semibold" style="color:#3b82f6;">Up to 3x more conversions</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how-it-works" class="relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16 reveal">
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6" style="border:1px solid rgba(59,130,246,0.2);"><span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">Simple Process</span></div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black mb-4">How It <span class="gradient-text">Works</span></h2>
+        <p class="text-lg max-w-xl mx-auto" style="color:#64748b;">From brief to live agent in as little as 7 days.</p>
+      </div>
+      <div class="relative">
+        <div class="hidden lg:block absolute top-10 left-[16.66%] right-[16.66%] h-px" style="background:linear-gradient(90deg,transparent,rgba(59,130,246,0.4) 20%,rgba(59,130,246,0.4) 80%,transparent);"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-8">
+          <div class="reveal flex flex-col items-center text-center" style="transition-delay:0s;">
+            <div class="relative mb-6"><div class="w-20 h-20 rounded-2xl flex items-center justify-center relative z-10 transition-all duration-300 hover:scale-110" style="background:linear-gradient(135deg,#2563eb,#3b82f6);box-shadow:0 0 30px rgba(59,130,246,0.4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="4" y="4" width="16" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/></svg></div><div class="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-zinc-950 border-2 border-green-500 flex items-center justify-center" style="background:#1e293b;z-index:20;"><span class="text-xs font-black" style="color:#3b82f6;">1</span></div></div>
+            <h3 class="font-bold text-xl mb-3" style="color:#0f172a;">Share Your Requirements</h3>
+            <p class="text-sm leading-relaxed max-w-xs" style="color:#64748b;">Tell us about your business, your customers, and what you want the agent to handle.</p>
+          </div>
+          <div class="reveal flex flex-col items-center text-center" style="transition-delay:0.12s;">
+            <div class="relative mb-6"><div class="w-20 h-20 rounded-2xl flex items-center justify-center relative z-10 transition-all duration-300 hover:scale-110" style="background:linear-gradient(135deg,#2563eb,#3b82f6);box-shadow:0 0 30px rgba(59,130,246,0.4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="absolute -top-2 -right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center" style="background:#1e293b;border-color:#3b82f6;z-index:20;"><span class="text-xs font-black" style="color:#3b82f6;">2</span></div></div>
+            <h3 class="font-bold text-xl mb-3" style="color:#0f172a;">We Build Your Agent</h3>
+            <p class="text-sm leading-relaxed max-w-xs" style="color:#64748b;">Our team configures your voice agent with your brand voice, scripts, and workflows.</p>
+          </div>
+          <div class="reveal flex flex-col items-center text-center" style="transition-delay:0.24s;">
+            <div class="relative mb-6"><div class="w-20 h-20 rounded-2xl flex items-center justify-center relative z-10 transition-all duration-300 hover:scale-110" style="background:linear-gradient(135deg,#2563eb,#3b82f6);box-shadow:0 0 30px rgba(59,130,246,0.4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></div><div class="absolute -top-2 -right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center" style="background:#1e293b;border-color:#3b82f6;z-index:20;"><span class="text-xs font-black" style="color:#3b82f6;">3</span></div></div>
+            <h3 class="font-bold text-xl mb-3" style="color:#0f172a;">Go Live &amp; Scale</h3>
+            <p class="text-sm leading-relaxed max-w-xs" style="color:#64748b;">Deploy your agent to your phone line or website. Monitor performance and scale as your business grows.</p>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-14 reveal">
+        <a href="#contact" onclick="showForm('Getting Started')" class="btn-primary inline-flex items-center gap-2 text-base">Get Started Today <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-12 reveal">
+        <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6" style="border:1px solid rgba(59,130,246,0.2);"><span class="text-xs font-semibold tracking-wide uppercase" style="color:#3b82f6;">Get In Touch</span></div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black mb-4">Request Your <span class="gradient-text">Custom Agent</span></h2>
+        <p class="text-lg max-w-lg mx-auto" style="color:#64748b;">Tell us about your business and we'll build you a bespoke AI voice agent in 7 days.</p>
+      </div>
+      <div id="contact-form-card" class="glass rounded-3xl border-green-glow p-8 sm:p-10 reveal" style="transition-delay:0.1s;">
+        <div class="w-full h-px mb-8" style="background:linear-gradient(90deg,transparent,rgba(59,130,246,0.5),transparent);"></div>
+        <form id="contact-form" onsubmit="handleFormSubmit(event)" novalidate>
+          <div class="space-y-5">
+            <div><label for="contact-name" class="block text-sm font-medium mb-2" style="color:#334155;">Full Name</label><input id="contact-name" name="fullName" type="text" placeholder="Your name" required class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200" /></div>
+            <div><label for="contact-email" class="block text-sm font-medium mb-2" style="color:#334155;">Email Address</label><input id="contact-email" name="email" type="email" placeholder="you@company.com" required class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200" /></div>
+            <div><label for="contact-company" class="block text-sm font-medium mb-2" style="color:#334155;">Company <span style="color:#94a3b8;font-weight:400;">(optional)</span></label><input id="contact-company" name="company" type="text" placeholder="Your company name" class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200" /></div>
+            <div><label for="contact-message" class="block text-sm font-medium mb-2" style="color:#334155;">Tell Us About Your Use Case</label><textarea id="contact-message" name="useCase" rows="4" placeholder="Describe what you'd like your AI voice agent to handle..." required class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200 resize-none"></textarea></div>
+          </div>
+          <button type="submit" id="submit-btn" class="btn-primary w-full mt-6 flex items-center justify-center gap-2 text-base"><span id="submit-label">Send Request →</span><svg id="submit-spinner" class="hidden animate-spin" width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg></button>
+          <div id="form-success" class="hidden mt-5 rounded-xl px-5 py-4 text-center" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);"><p class="font-semibold text-sm flex items-center justify-center gap-2" style="color:#3b82f6;">✓ Request sent! We'll be in touch within 24 hours.</p></div>
+          <div id="form-error" class="hidden mt-5 rounded-xl px-5 py-4 text-center font-semibold text-sm" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">Please fill in all required fields.</div>
+        </form>
+      </div>
+      <p class="text-center text-xs mt-6" style="color:#94a3b8;">🔒 Your information is secure and never shared. We respond within 24 hours.</p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="relative z-10 pt-16 pb-10 px-4 sm:px-6 lg:px-8" style="border-top:1px solid #e2e8f0;background:#f8fafc;">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2 mb-4"><div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#3b82f6);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="white"/></svg></div><span class="font-bold text-xl tracking-tight" style="color:#0f172a;">Blissy <span class="gradient-text">Voice Agent</span></span></div>
+          <p class="text-sm leading-relaxed max-w-xs mb-6" style="color:#64748b;">AI Voice Agents that handle calls, bookings, and customer interactions automatically.</p>
+        </div>
+        <div><h4 class="font-semibold text-sm mb-5" style="color:#0f172a;">Product</h4><ul class="space-y-3"><li><a href="#demo" class="text-sm transition-colors duration-200" style="color:#94a3b8;">Live Demo</a></li><li><a href="#use-cases" class="text-sm transition-colors duration-200" style="color:#94a3b8;">Use Cases</a></li><li><a href="#how-it-works" class="text-sm transition-colors duration-200" style="color:#94a3b8;">How It Works</a></li></ul></div>
+        <div><h4 class="font-semibold text-sm mb-5" style="color:#0f172a;">Company</h4><ul class="space-y-3"><li><a href="#" class="text-sm transition-colors duration-200" style="color:#94a3b8;">About BlissyAI</a></li><li><a href="#contact" class="text-sm transition-colors duration-200" style="color:#94a3b8;">Contact Us</a></li><li><a href="#" class="text-sm transition-colors duration-200" style="color:#94a3b8;">Privacy Policy</a></li></ul></div>
+      </div>
+      <div class="flex flex-col sm:flex-row items-center justify-between pt-8 gap-4" style="border-top:1px solid #e2e8f0;">
+        <p class="text-xs" style="color:#94a3b8;">© 2025 BlissyAI. All rights reserved.</p>
+        <div class="flex items-center gap-2 glass rounded-full px-4 py-2"><div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div><span class="text-xs" style="color:#64748b;">All systems operational</span></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ── ANIMATION CSS ─────────────────────────────────────────── -->
+  <style>
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+    @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+    @keyframes wave{0%,100%{transform:scaleY(1);}50%{transform:scaleY(1.8);}}
+
+    /* Orb */
+    #ai-orb{transition:box-shadow 0.5s cubic-bezier(0.4,0,0.2,1),transform 0.5s cubic-bezier(0.4,0,0.2,1);}
+    @keyframes orbIdle{0%,100%{box-shadow:0 0 35px rgba(59,130,246,0.45),0 0 70px rgba(59,130,246,0.18),0 0 0 1px rgba(147,197,253,0.25) inset;transform:scale(1);}50%{box-shadow:0 0 55px rgba(59,130,246,0.7),0 0 110px rgba(59,130,246,0.3),0 0 0 1px rgba(147,197,253,0.35) inset;transform:scale(1.025);}}
+    #ai-orb{animation:orbIdle 3.2s ease-in-out infinite;}
+    @keyframes orbListening{0%,100%{box-shadow:0 0 40px rgba(34,211,238,0.5),0 0 80px rgba(34,211,238,0.2),0 0 0 1px rgba(165,243,252,0.3) inset;transform:scale(1);}50%{box-shadow:0 0 65px rgba(34,211,238,0.75),0 0 130px rgba(34,211,238,0.35),0 0 0 1px rgba(165,243,252,0.45) inset;transform:scale(1.03);}}
+    #ai-orb.orb-listening{animation:orbListening 1.8s ease-in-out infinite;background:radial-gradient(circle at 32% 32%,#a5f3fc 0%,#22d3ee 30%,#0891b2 60%,#0c4a6e 85%,#031e30 100%)!important;}
+    @keyframes orbSpeaking{0%,100%{box-shadow:0 0 55px rgba(251,146,60,0.8),0 0 110px rgba(251,146,60,0.4),0 0 0 2px rgba(254,215,170,0.4) inset;transform:scale(1);}50%{box-shadow:0 0 80px rgba(251,146,60,1),0 0 160px rgba(251,146,60,0.55),0 0 0 2px rgba(254,215,170,0.6) inset;transform:scale(1.06);}}
+    #ai-orb.orb-speaking{animation:orbSpeaking 0.75s ease-in-out infinite;background:radial-gradient(circle at 32% 32%,#fed7aa 0%,#fb923c 30%,#ea580c 60%,#7c2d12 85%,#280e00 100%)!important;}
+    @keyframes orbConnecting{0%,100%{opacity:0.6;transform:scale(0.97);}50%{opacity:1;transform:scale(1.02);}}
+    #ai-orb.orb-connecting{animation:orbConnecting 0.9s ease-in-out infinite;}
+
+    /* Orb ripple */
+    @keyframes rippleBurst{0%{transform:translate(-50%,-50%) scale(0.8);opacity:0.8;}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0;}}
+    .orb-ripple{position:absolute;border-radius:50%;border:2px solid rgba(59,130,246,0.6);animation:rippleBurst 0.7s cubic-bezier(0.2,0,0.8,1) forwards;pointer-events:none;z-index:20;top:50%;left:50%;}
+    .orb-ripple.cyan{border-color:rgba(34,211,238,0.6);}
+    .orb-ripple.orange{border-color:rgba(251,146,60,0.6);}
+
+    /* Rings */
+    .orb-ring{transition:border-color 0.5s ease;}
+    @keyframes ringIdle{0%,100%{transform:scale(1);opacity:0.9;}50%{transform:scale(1.07);opacity:0.4;}}
+    @keyframes ringFast{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.12);opacity:0.3;}}
+    #orb-ring-1{animation:ringIdle 3.2s ease-in-out infinite 0s;}
+    #orb-ring-2{animation:ringIdle 3.2s ease-in-out infinite 0.45s;}
+    #orb-ring-3{animation:ringIdle 3.2s ease-in-out infinite 0.9s;}
+    #ai-orb-wrapper.rings-fast #orb-ring-1{animation:ringFast 0.75s ease-in-out infinite 0s;}
+    #ai-orb-wrapper.rings-fast #orb-ring-2{animation:ringFast 0.75s ease-in-out infinite 0.15s;}
+    #ai-orb-wrapper.rings-fast #orb-ring-3{animation:ringFast 0.75s ease-in-out infinite 0.3s;}
+    #ai-orb-wrapper.rings-cyan #orb-ring-1{border-color:rgba(34,211,238,0.35)!important;}
+    #ai-orb-wrapper.rings-orange #orb-ring-1{border-color:rgba(251,146,60,0.4)!important;}
+
+    /* Wave lines */
+    .wave-line{position:absolute;width:100%;height:1.5px;border-radius:99px;background:linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.06) 12%,rgba(59,130,246,0.38) 38%,rgba(147,197,253,0.55) 50%,rgba(59,130,246,0.38) 62%,rgba(59,130,246,0.06) 88%,transparent 100%);animation:waveLine 3s ease-in-out infinite;animation-delay:var(--delay);}
+    .wave-line:nth-child(1){top:8%;}.wave-line:nth-child(2){top:26%;}.wave-line:nth-child(3){top:46%;}.wave-line:nth-child(4){top:66%;}.wave-line:nth-child(5){top:84%;}
+    @keyframes waveLine{0%,100%{transform:scaleX(0.5) scaleY(1);opacity:0.25;}50%{transform:scaleX(1) scaleY(4);opacity:1;}}
+    #wave-field.waves-active .wave-line{animation-duration:0.7s!important;}
+
+    /* Status chip animation */
+    .status-chip{transition:opacity 0.3s ease;}
+    .status-chip.hidden{display:none;}
+    .status-chip.entering{animation:chipEnter 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+    @keyframes chipEnter{0%{opacity:0;transform:scale(0.75) translateY(4px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+
+    /* Scan line */
+    #demo-scan-line{position:absolute;inset-x:0;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.6) 40%,rgba(147,197,253,0.9) 50%,rgba(59,130,246,0.6) 60%,transparent 100%);animation:scanLine 5s linear infinite;pointer-events:none;z-index:5;opacity:0.5;}
+    @keyframes scanLine{0%{top:0%;opacity:0;}5%{opacity:0.5;}95%{opacity:0.5;}100%{top:100%;opacity:0;}}
+
+    /* Prompt chips */
+    .prompt-chip{transition:all 0.2s ease;}
+    .prompt-chip:hover{background:rgba(59,130,246,0.08)!important;border-color:rgba(59,130,246,0.4)!important;color:#2563eb;transform:translateY(-2px);}
+
+    /* Responsive orb */
+    .demo-orb-wrapper{width:180px;height:180px;}
+    .demo-ring-3{width:168px;height:168px;}
+    .demo-ring-2{width:132px;height:132px;}
+    .demo-ring-1{width:100px;height:100px;}
+    .demo-orb{width:72px;height:72px;}
+    .demo-orb-core{width:28px;height:28px;}
+    @media(min-width:640px){
+      .demo-orb-wrapper{width:240px;height:240px;}
+      .demo-ring-3{width:220px;height:220px;}
+      .demo-ring-2{width:172px;height:172px;}
+      .demo-ring-1{width:130px;height:130px;}
+      .demo-orb{width:96px;height:96px;}
+      .demo-orb-core{width:36px;height:36px;}
+    }
+    .orb-ripple{width:72px;height:72px;}
+    @media(min-width:640px){.orb-ripple{width:96px;height:96px;}}
+
+    /* Orb tooltip */
+    #ai-orb::after{content:attr(data-hint);position:absolute;bottom:-32px;left:50%;transform:translateX(-50%) translateY(4px);background:rgba(9,9,11,0.9);border:1px solid rgba(59,130,246,0.25);color:#93c5fd;font-size:10px;font-weight:600;letter-spacing:0.04em;padding:4px 10px;border-radius:99px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 0.25s ease,transform 0.25s ease;}
+    #ai-orb:hover::after{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    /* Form highlight */
+    @keyframes highlightPulse{0%{box-shadow:0 0 0 0 rgba(59,130,246,0.5);}70%{box-shadow:0 0 0 16px rgba(59,130,246,0);}100%{box-shadow:0 0 0 0 rgba(59,130,246,0);}}
+    .highlight-pulse{animation:highlightPulse 0.8s ease-out;}
+  </style>
+
+  <!-- ── JAVASCRIPT ────────────────────────────────────────────── -->
+  <script>
+    // ── Config from URL params (passed from index.html) ──────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const CFG = {
+      llm:        urlParams.get('llm')        || 'anthropic',
+      stt:        urlParams.get('stt')        || 'sarvam',
+      tts:        urlParams.get('tts')        || 'elevenlabs',
+      expressive: urlParams.get('expressive') === '1',
+      voice:      urlParams.get('voice')      || null,
+    };
+
+    // Show model label in top bar
+    const MODEL_NAMES = { anthropic:'Claude Haiku', sonnet:'Claude Sonnet', opus:'Claude Opus' };
+    const modelLabelEl = document.getElementById('model-label');
+    if (modelLabelEl) modelLabelEl.textContent = MODEL_NAMES[CFG.llm] || 'Priya';
+
+    // Set orb tooltip
+    const orbEl = document.getElementById('ai-orb');
+    if (orbEl) orbEl.setAttribute('data-hint', 'Click to call Priya');
+
+    // ── State ─────────────────────────────────────────────────────
+    const STATES = { IDLE:'idle', CONNECTING:'connecting', LISTENING:'listening', SPEAKING:'speaking' };
+    let callState = STATES.IDLE;
+    let pc = null, localStream = null, audioCtx = null;
+    let remoteAna = null, localAna = null;
+    let micMuted = false, rafId = null, txPollId = null;
+
+    // ── DOM refs ──────────────────────────────────────────────────
+    const orbWrap       = document.getElementById('ai-orb-wrapper');
+    const waveField     = document.getElementById('wave-field');
+    const liveDot       = document.getElementById('live-dot');
+    const btnStart      = document.getElementById('btn-start-call');
+    const callCtrls     = document.getElementById('call-controls');
+    const connectInd    = document.getElementById('connect-indicator');
+    const realTx        = document.getElementById('real-transcript');
+    const txLines       = document.getElementById('tx-lines');
+    const promptSection = document.getElementById('prompt-section');
+    const eqCanvas      = document.getElementById('eq-canvas');
+    const eqCtx         = eqCanvas ? eqCanvas.getContext('2d') : null;
+
+    // ── Set visual state ──────────────────────────────────────────
+    function setCallState(s) {
+      callState = s;
+
+      // Chips
+      ['chip-idle','chip-connecting','chip-listening','chip-speaking'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+      const chipMap = { idle:'chip-idle', connecting:'chip-connecting', listening:'chip-listening', speaking:'chip-speaking' };
+      const chip = document.getElementById(chipMap[s]);
+      if (chip) { chip.classList.remove('hidden','entering'); void chip.offsetWidth; chip.classList.add('entering'); }
+
+      // Orb class
+      orbEl && orbEl.classList.remove('orb-listening','orb-speaking','orb-connecting');
+      if (s === STATES.LISTENING)   orbEl && orbEl.classList.add('orb-listening');
+      if (s === STATES.SPEAKING)    orbEl && orbEl.classList.add('orb-speaking');
+      if (s === STATES.CONNECTING)  orbEl && orbEl.classList.add('orb-connecting');
+
+      // Ring speed/color
+      orbWrap && orbWrap.classList.remove('rings-fast','rings-cyan','rings-orange');
+      if (s === STATES.LISTENING)  orbWrap && orbWrap.classList.add('rings-cyan');
+      if (s === STATES.SPEAKING)   { orbWrap && orbWrap.classList.add('rings-fast','rings-orange'); }
+
+      // Wave speed
+      waveField && waveField.classList.toggle('waves-active', s === STATES.SPEAKING || s === STATES.LISTENING);
+
+      // Live dot
+      if (liveDot) {
+        liveDot.style.background = s === STATES.LISTENING ? '#22d3ee' : s === STATES.SPEAKING ? '#fb923c' : s === STATES.CONNECTING ? '#f0b429' : '#94a3b8';
+      }
+
+      // Controls
+      const isActive = s !== STATES.IDLE;
+      if (btnStart)   btnStart.style.display     = isActive ? 'none' : '';
+      if (callCtrls)  callCtrls.style.display    = isActive ? 'flex' : 'none';
+      if (connectInd) connectInd.style.display   = s === STATES.CONNECTING ? 'flex' : 'none';
+
+      // Transcript / prompts
+      if (realTx)        realTx.style.display        = isActive ? '' : 'none';
+      if (promptSection) promptSection.style.display = isActive ? 'none' : '';
+
+      // Orb tooltip
+      if (orbEl) orbEl.setAttribute('data-hint', isActive ? 'Click to end call' : 'Click to call Priya');
+
+      // Ripple
+      spawnRipple(s === STATES.LISTENING ? 'cyan' : s === STATES.SPEAKING ? 'orange' : '');
+    }
+
+    function spawnRipple(colorClass) {
+      if (!orbWrap) return;
+      const r = document.createElement('div');
+      r.className = 'orb-ripple' + (colorClass ? ' ' + colorClass : '');
+      orbWrap.appendChild(r);
+      r.addEventListener('animationend', () => r.remove());
+    }
+
+    // ── WebRTC ────────────────────────────────────────────────────
+    async function startCall() {
+      if (callState !== STATES.IDLE) return;
+      setCallState(STATES.CONNECTING);
+
+      audioCtx = new AudioContext();
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch {
+        setCallState(STATES.IDLE);
+        alert('Microphone access denied. Please allow microphone and try again.');
+        return;
+      }
+
+      const localSrc = audioCtx.createMediaStreamSource(localStream);
+      localAna = audioCtx.createAnalyser(); localAna.fftSize = 256;
+      localSrc.connect(localAna);
+
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+      pc.ontrack = evt => {
+        if (evt.track.kind !== 'audio') return;
+        const rs = new MediaStream([evt.track]);
+        const audio = document.createElement('audio');
+        audio.autoplay = true; audio.srcObject = rs;
+        document.body.appendChild(audio);
+        audio.play().catch(() => {});
+        audioCtx.resume().then(() => {
+          const src = audioCtx.createMediaStreamSource(rs);
+          remoteAna = audioCtx.createAnalyser(); remoteAna.fftSize = 256;
+          src.connect(remoteAna);
+          startLevelMonitor();
+        });
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setCallState(STATES.LISTENING);
+          startEQ();
+          pollTranscript();
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          cleanup();
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Wait for ICE gathering
+      await new Promise(resolve => {
+        if (pc.iceGatheringState === 'complete') { resolve(); return; }
+        pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') resolve(); });
+        setTimeout(resolve, 4000);
+      });
+
+      try {
+        const resp = await fetch('/offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sdp: pc.localDescription.sdp,
+            type: pc.localDescription.type,
+            stt: CFG.stt,
+            llm: CFG.llm,
+            tts: CFG.tts,
+            voice: CFG.voice,
+            expressive: CFG.expressive,
+          }),
+        });
+        if (!resp.ok) throw new Error('Server ' + resp.status);
+        const answer = await resp.json();
+        await pc.setRemoteDescription({ sdp: answer.sdp, type: answer.type });
+      } catch (err) {
+        console.error('Call failed:', err);
+        cleanup();
+        alert('Could not connect. Make sure the Blissy server is running.');
+      }
+    }
+
+    function cleanup() {
+      stopEQ(); stopLevelMonitor(); stopPollTranscript();
+      if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+      if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+      remoteAna = null; localAna = null;
+      if (pc) { pc.close(); pc = null; }
+      micMuted = false;
+      const btnMute = document.getElementById('btn-mute');
+      if (btnMute) { btnMute.classList.remove('muted'); document.getElementById('mute-label').textContent = 'Mute'; }
+      setCallState(STATES.IDLE);
+    }
+
+    function toggleMute() {
+      if (!localStream) return;
+      micMuted = !micMuted;
+      localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+      const btnMute = document.getElementById('btn-mute');
+      if (btnMute) {
+        btnMute.classList.toggle('muted', micMuted);
+        document.getElementById('mute-label').textContent = micMuted ? 'Unmute' : 'Mute';
+      }
+    }
+
+    function handleOrbClick() {
+      if (callState === STATES.IDLE) startCall();
+      else if (callState !== STATES.CONNECTING) cleanup();
+    }
+
+    // ── Audio level monitor (idle detection) ──────────────────────
+    let levelRafId = null;
+    function startLevelMonitor() {
+      if (!remoteAna) return;
+      const data = new Uint8Array(remoteAna.frequencyBinCount);
+      let silF = 0;
+      function tick() {
+        remoteAna.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        if (avg > 4) { silF = 0; if (callState !== STATES.SPEAKING) setCallState(STATES.SPEAKING); }
+        else { silF++; if (silF > 20 && callState === STATES.SPEAKING) setCallState(STATES.LISTENING); }
+        levelRafId = requestAnimationFrame(tick);
+      }
+      tick();
+    }
+    function stopLevelMonitor() { if (levelRafId) { cancelAnimationFrame(levelRafId); levelRafId = null; } }
+
+    // ── EQ bar visualizer on canvas ───────────────────────────────
+    function drawEQ() {
+      if (!eqCtx || !eqCanvas) return;
+      const w = eqCanvas.width, h = eqCanvas.height;
+      eqCtx.clearRect(0, 0, w, h);
+      const ana = (callState === STATES.SPEAKING) ? remoteAna : (callState === STATES.LISTENING ? localAna : null);
+      if (!ana) {
+        // idle: gentle static bars
+        const barW = 6, gap = 3, bars = 12;
+        const totalW = bars * (barW + gap) - gap;
+        const x0 = (w - totalW) / 2;
+        const heights = [0.3,0.6,0.45,0.85,0.65,0.4,0.75,0.5,0.35,0.7,0.55,0.8];
+        heights.forEach((hf, i) => {
+          const bh = h * hf * 0.5;
+          const x = x0 + i * (barW + gap);
+          const grad = eqCtx.createLinearGradient(0, h - bh, 0, h);
+          grad.addColorStop(0, 'rgba(147,197,253,0.6)');
+          grad.addColorStop(1, 'rgba(59,130,246,0.2)');
+          eqCtx.fillStyle = grad;
+          eqCtx.beginPath();
+          eqCtx.roundRect(x, h - bh, barW, bh, 3);
+          eqCtx.fill();
+        });
+        return;
+      }
+      const data = new Uint8Array(ana.frequencyBinCount);
+      ana.getByteFrequencyData(data);
+      const barW = 6, gap = 3, bars = 12;
+      const totalW = bars * (barW + gap) - gap;
+      const x0 = (w - totalW) / 2;
+      const step = Math.floor(data.length / bars);
+      for (let i = 0; i < bars; i++) {
+        const val = data[i * step] / 255;
+        const bh = Math.max(3, val * h);
+        const x = x0 + i * (barW + gap);
+        const isSpeak = callState === STATES.SPEAKING;
+        const grad = eqCtx.createLinearGradient(0, h - bh, 0, h);
+        grad.addColorStop(0, isSpeak ? 'rgba(254,215,170,0.9)' : 'rgba(165,243,252,0.9)');
+        grad.addColorStop(1, isSpeak ? 'rgba(251,146,60,0.3)' : 'rgba(34,211,238,0.3)');
+        eqCtx.fillStyle = grad;
+        eqCtx.beginPath();
+        if (eqCtx.roundRect) eqCtx.roundRect(x, h - bh, barW, bh, 3);
+        else eqCtx.rect(x, h - bh, barW, bh);
+        eqCtx.fill();
+      }
+    }
+
+    function startEQ() {
+      function frame() { drawEQ(); rafId = requestAnimationFrame(frame); }
+      frame();
+    }
+    function stopEQ() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } if (eqCtx && eqCanvas) eqCtx.clearRect(0, 0, eqCanvas.width, eqCanvas.height); }
+
+    // ── Transcript polling ────────────────────────────────────────
+    let lastTxLen = 0;
+    function renderTranscript(rows) {
+      if (!txLines || rows.length === lastTxLen) return;
+      lastTxLen = rows.length;
+      txLines.innerHTML = '';
+      rows.forEach(r => {
+        if (r.role === 'system') return;
+        const div = document.createElement('div');
+        div.className = 'tx-row';
+        const badge = document.createElement('span');
+        badge.className = 'tx-badge ' + (r.role === 'user' ? 'user' : 'priya');
+        badge.textContent = r.role === 'user' ? 'You' : 'Priya';
+        const text = document.createElement('span');
+        text.className = 'tx-text';
+        text.textContent = r.text || '';
+        div.appendChild(badge); div.appendChild(text);
+        txLines.appendChild(div);
+      });
+      if (realTx) realTx.scrollTop = realTx.scrollHeight;
+    }
+
+    async function pollTranscript() {
+      try {
+        const r = await fetch('/transcript');
+        if (r.ok) renderTranscript(await r.json());
+      } catch (_) {}
+      txPollId = setTimeout(pollTranscript, 1000);
+    }
+    function stopPollTranscript() { clearTimeout(txPollId); txPollId = null; lastTxLen = 0; }
+
+    // ── Idle EQ animation ─────────────────────────────────────────
+    (function idleLoop() { if (!rafId) { drawEQ(); } requestAnimationFrame(idleLoop); })();
+
+    // ── Util ──────────────────────────────────────────────────────
+    function toggleMenu() { document.getElementById('mobile-menu').classList.toggle('open'); }
+
+    function showForm(industry) {
+      document.getElementById('contact').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (industry) {
+        setTimeout(() => {
+          const f = document.getElementById('contact-message');
+          if (f && !f.value) f.value = "I'm interested in a custom AI Voice Agent for " + industry + ".";
+          const c = document.getElementById('contact-form-card');
+          if (c) { c.classList.add('highlight-pulse'); c.addEventListener('animationend', () => c.classList.remove('highlight-pulse'), { once: true }); }
+        }, 650);
+      }
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const name = form.fullName.value.trim(), email = form.email.value.trim(), company = form.company.value.trim(), message = form.useCase.value.trim();
+      const errorEl = document.getElementById('form-error'), successEl = document.getElementById('form-success');
+      const btn = document.getElementById('submit-btn'), label = document.getElementById('submit-label'), spinner = document.getElementById('submit-spinner');
+      errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+      if (!name || !email || !message) { errorEl.textContent = 'Please fill in all required fields.'; errorEl.classList.remove('hidden'); return; }
+      btn.disabled = true; label.textContent = 'Sending...'; spinner.classList.remove('hidden');
+      try {
+        const res = await fetch('https://automation.blissyai.com/webhook/blissy-voxa-form', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, email, company, message }) });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        successEl.classList.remove('hidden'); form.reset();
+      } catch (err) {
+        errorEl.textContent = 'Failed to send — please try again.'; errorEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false; label.textContent = 'Send Request →'; spinner.classList.add('hidden');
+      }
+    }
+
+    // ── Scroll reveal ─────────────────────────────────────────────
+    const ro = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.07, rootMargin: '0px 0px -30px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+    // Auto-scroll to demo on load if #demo hash
+    if (window.location.hash === '#demo') {
+      setTimeout(() => document.getElementById('demo').scrollIntoView({ behavior: 'smooth' }), 300);
+    }
+
+    // Init idle state
+    setCallState(STATES.IDLE);
+  </script>
+</body>
+</html>
