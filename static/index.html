@@ -805,7 +805,7 @@
   // Backend URL — empty string = same origin (local dev).
   // On S3/CloudFront set this to your EC2 CloudFront HTTPS URL, e.g.:
   //   const BACKEND_URL = 'https://api.blissyai.com';
-  const BACKEND_URL = window.__BACKEND_URL__ || '';
+  const BACKEND_URL = 'https://www.blissyai.com';
 
   const States = { IDLE:'idle', CONNECTING:'connecting', LISTENING:'listening', SPEAKING:'speaking' };
   const STATUS  = { idle:'Tap to call Priya', connecting:'Connecting...', listening:'Listening', speaking:'Priya is speaking...' };
