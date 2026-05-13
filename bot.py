@@ -342,7 +342,7 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-sonnet-4-6",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=120,
+                max_tokens=250,
                 enable_prompt_caching=True,
             ),
         )
@@ -354,7 +354,7 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-opus-4-7",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=100,
+                max_tokens=250,
                 enable_prompt_caching=True,
             ),
         )
@@ -366,7 +366,7 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-haiku-4-5-20251001",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=120,
+                max_tokens=250,
                 enable_prompt_caching=True,
             ),
         )
@@ -489,7 +489,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         ])
 
 
-    task = PipelineTask(pipeline)
+    task = PipelineTask(pipeline, allow_interruptions=True)
 
     async def handle_save_booking(params):
         args = params.arguments
@@ -517,6 +517,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி help பண்ணட்டும் sir?"
         if transcript is not None:
             transcript.append({"role": "priya", "text": greeting})
+        await asyncio.sleep(0.5)
         await task.queue_frame(TTSSpeakFrame(greeting))
 
     @transport.event_handler("on_client_disconnected")
