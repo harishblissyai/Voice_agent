@@ -330,21 +330,6 @@ class TTSTimingLogger(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
-# ── n8n webhook ───────────────────────────────────────────────────────────────
-
-async def _post_to_n8n(data: dict) -> bool:
-    webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
-    if not webhook_url:
-        logger.warning("N8N_WEBHOOK_URL not set — booking data not saved")
-        return False
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=data, timeout=aiohttp.ClientTimeout(total=3)) as r:
-                logger.info(f"n8n webhook response: {r.status}")
-                return r.status < 300
-    except Exception as e:
-        logger.error(f"n8n webhook error: {e}")
-        return False
 
 
 # ── Service factories ─────────────────────────────────────────────────────────
@@ -511,11 +496,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         logger.info(f"save_booking: {args}")
         if transcript is not None:
             transcript.append({"role": "booking", "text": str(args)})
-        ok = await _post_to_n8n(args)
-        if ok:
-            await params.result_callback("Details saved. Proceed with the confirmation line.")
-        else:
-            await params.result_callback("Details noted locally. Proceed with the confirmation line.")
+        await params.result_callback("Details noted. Proceed with the confirmation line.")
 
     async def handle_end_call(params):
         logger.info("end_call triggered")
