@@ -22,12 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY bot.py server.py ./
 COPY static/ ./static/
 
-EXPOSE 8000
+EXPOSE 8070
 
 ENV HOST=0.0.0.0
-ENV PORT=8000
+ENV PORT=8070
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8070/health || exit 1
 
 CMD ["python", "server.py"]

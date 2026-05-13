@@ -150,7 +150,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "server:app",
         host=os.environ.get("HOST", "0.0.0.0"),
-        port=int(os.environ.get("PORT", 8000)),
+        port=int(os.environ.get("PORT", 8070)),
         reload=False,
         log_level="info",
     )
