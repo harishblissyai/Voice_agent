@@ -634,7 +634,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, connection):
-        greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி உதவட்டும் சார்?"
+        greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி help பண்ணட்டும் sir?"
         if transcript is not None:
             transcript.append({"role": "priya", "text": greeting})
         await task.queue_frame(TTSSpeakFrame(greeting))
