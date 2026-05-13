@@ -1174,7 +1174,7 @@
   }
 
   async function pollTranscript() {
-    try { const r = await fetch(BACKEND_URL+'/transcript'); if (r.ok) renderTranscript(await r.json()); } catch(_){}
+    try { const r = await fetch(BACKEND_URL+'/api/transcript'); if (r.ok) renderTranscript(await r.json()); } catch(_){}
     txPollId = setTimeout(pollTranscript, 1000);
   }
   function stopPollTranscript() { clearTimeout(txPollId); txPollId = null; }
@@ -1197,7 +1197,7 @@
 
   async function pollLogs() {
     try {
-      const r = await fetch(BACKEND_URL+'/logs');
+      const r = await fetch(BACKEND_URL+'/api/logs');
       if (r.ok) {
         const logs = await r.json();
         if (logs.length !== lastLogCount) {
@@ -1296,7 +1296,7 @@
 
     let answer;
     try {
-      const resp = await fetch(BACKEND_URL+'/offer', {
+      const resp = await fetch(BACKEND_URL+'/api/offer', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ sdp:pc.localDescription.sdp, type:pc.localDescription.type, stt:selectedSTT, llm:selectedLLM, tts:selectedTTS, voice:selectedVoice, expressive }),

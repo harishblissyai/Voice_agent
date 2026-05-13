@@ -77,35 +77,9 @@ async def serve_demo():
     return FileResponse("static/demo.html")
 
 
-@app.get("/voices")
-async def get_voices():
-    def _ev(key): return os.environ.get(key, "")
-    return JSONResponse({
-        "elevenlabs": [
-            {"id": _ev("ELEVENLABS_VOICE_TA"), "label": "Default"},
-            {"id": _ev("ELEVENLABS_VOICE_2"),  "label": "Voice 2"},
-            {"id": _ev("ELEVENLABS_VOICE_3"),  "label": "Voice 3"},
-        ],
-        "sarvam": [
-            {"id": "simran", "label": "Simran"},
-            {"id": "priya",  "label": "Priya"},
-            {"id": "kavya",  "label": "Kavya"},
-            {"id": "neha",   "label": "Neha"},
-        ],
-        "cartesia": [
-            {"id": _ev("CARTESIA_VOICE_ID"), "label": "Kavitha"},
-            {"id": _ev("CARTESIA_VOICE_2"),  "label": "Voice 2"},
-            {"id": _ev("CARTESIA_VOICE_3"),  "label": "Voice 3"},
-        ],
-        "rime": [
-            {"id": "indira",  "label": "Indira"},
-            {"id": "zara",    "label": "Zara"},
-            {"id": "pita",    "label": "Pita"},
-            {"id": "meadow",  "label": "Meadow"},
-        ],
-    })
+# ── API routes — all under /api/* for CloudFront behavior routing ─────────────
 
-
+@app.post("/api/offer")
 @app.post("/offer")
 async def offer(request: Request):
     body = await request.json()
@@ -124,6 +98,7 @@ async def offer(request: Request):
     return answer
 
 
+@app.patch("/api/ice")
 @app.patch("/ice")
 async def ice(request: Request):
     body = await request.json()
@@ -132,15 +107,19 @@ async def ice(request: Request):
     return {"status": "ok"}
 
 
+@app.get("/api/transcript")
 @app.get("/transcript")
 async def get_transcript():
     return JSONResponse(list(transcript))
 
 
+@app.get("/api/logs")
 @app.get("/logs")
 async def get_logs():
     return JSONResponse(list(server_logs))
 
+
+@app.get("/api/health")
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "Blissy Restaurant Bot"}

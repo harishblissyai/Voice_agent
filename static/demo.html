@@ -827,7 +827,7 @@
       });
 
       try {
-        const resp = await fetch(BACKEND_URL+'/offer', {
+        const resp = await fetch(BACKEND_URL+'/api/offer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -979,7 +979,7 @@
 
     async function pollTranscript() {
       try {
-        const r = await fetch(BACKEND_URL+'/transcript');
+        const r = await fetch(BACKEND_URL+'/api/transcript');
         if (r.ok) renderTranscript(await r.json());
       } catch (_) {}
       txPollId = setTimeout(pollTranscript, 1000);
