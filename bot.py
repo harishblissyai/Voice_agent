@@ -29,6 +29,7 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+from pipecat.services.tts_service import TextAggregationMode
 
 load_dotenv()
 
@@ -331,19 +332,17 @@ class TTSTimingLogger(FrameProcessor):
 
 # ── n8n webhook ───────────────────────────────────────────────────────────────
 
-async def _post_to_n8n(data: dict) -> bool:
+async def _post_to_n8n(data: dict) -> None:
     webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
     if not webhook_url:
         logger.warning("N8N_WEBHOOK_URL not set — booking data not saved")
-        return False
+        return
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=data, timeout=aiohttp.ClientTimeout(total=8)) as r:
+            async with session.post(webhook_url, json=data, timeout=aiohttp.ClientTimeout(total=3)) as r:
                 logger.info(f"n8n webhook response: {r.status}")
-                return r.status < 300
     except Exception as e:
         logger.error(f"n8n webhook error: {e}")
-        return False
 
 
 # ── Service factories ─────────────────────────────────────────────────────────
@@ -356,7 +355,8 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-sonnet-4-6",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
+                max_tokens=120,
+                enable_prompt_caching=True,
             ),
         )
         return svc, False
@@ -367,7 +367,8 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-opus-4-7",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=180,
+                max_tokens=100,
+                enable_prompt_caching=True,
             ),
         )
         return svc, False
@@ -378,7 +379,8 @@ def _make_llm(provider: str):
             settings=AnthropicLLMService.Settings(
                 model="claude-haiku-4-5-20251001",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
+                max_tokens=120,
+                enable_prompt_caching=True,
             ),
         )
         return svc, False
@@ -428,7 +430,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
                 high_vad_sensitivity=True,
                 positive_speech_threshold=0.6,
                 negative_speech_threshold=0.3,
-                negative_frames_count=3,
+                negative_frames_count=2,
                 negative_frames_window=6,
             ),
         )
@@ -465,13 +467,15 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         tts_node = ElevenLabsTTSService(
             api_key=os.environ["ELEVENLABS_API_KEY"],
             auto_mode=True,
+            text_aggregation_mode=TextAggregationMode.SENTENCE,
             settings=ElevenLabsTTSService.Settings(
                 model="eleven_turbo_v2_5",
                 voice=_el_ta_voice,
                 stability=0.30 if expressive else 0.45,
                 similarity_boost=0.8,
-                style=0.60 if expressive else 0.0,
+                style=0.20 if expressive else 0.0,
                 speed=1.0,
+                apply_text_normalization="off",
             ),
         )
         voice_switcher = VoiceSwitcher(
@@ -505,11 +509,8 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         logger.info(f"save_booking: {args}")
         if transcript is not None:
             transcript.append({"role": "booking", "text": str(args)})
-        ok = await _post_to_n8n(args)
-        if ok:
-            await params.result_callback("Details saved. Proceed with the confirmation line.")
-        else:
-            await params.result_callback("Details noted locally. Proceed with the confirmation line.")
+        asyncio.create_task(_post_to_n8n(args))  # fire-and-forget — don't block confirmation
+        await params.result_callback("Booking saved. Now immediately speak the confirmation line to the caller.")
 
     async def handle_end_call(params):
         logger.info("end_call triggered")
@@ -535,6 +536,20 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, connection):
         await task.queue_frame(EndFrame())
+
+    async def _prewarm():
+        try:
+            import anthropic as _anthropic
+            client = _anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            await client.messages.create(
+                model="claude-haiku-4-5-20251001", max_tokens=1,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            logger.debug("Anthropic pre-warm done")
+        except Exception as e:
+            logger.debug(f"Anthropic pre-warm skipped: {e}")
+
+    asyncio.create_task(_prewarm())
 
     runner = PipelineRunner(handle_sigint=False)
     try:
