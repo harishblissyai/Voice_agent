@@ -73,21 +73,43 @@
     .call-btn-end{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);}
     .call-btn-end:hover{background:rgba(239,68,68,0.18);}
 
-    /* ── TRANSCRIPT ────────────────────────────────────────────── */
-    #real-transcript{
-      display:none;width:100%;max-height:200px;overflow-y:auto;
-      padding:0.75rem 1rem;border-radius:16px;
-      background:rgba(248,250,252,0.8);border:1px solid #e2e8f0;
-      font-size:0.78rem;line-height:1.6;
+    /* ── CONVERSATION PANEL ────────────────────────────────────── */
+    #conv-panel{
+      max-height:0;overflow:hidden;
+      transition:max-height 0.35s cubic-bezier(0.4,0,0.2,1);
     }
-    .tx-row{display:flex;gap:0.6rem;margin-bottom:0.5rem;align-items:flex-start;}
-    .tx-badge{flex-shrink:0;padding:0.15rem 0.5rem;border-radius:8px;font-size:0.6rem;font-weight:700;letter-spacing:0.06em;margin-top:0.1rem;}
+    #conv-panel.open{ max-height:280px; }
+    #conv-inner{
+      border-top:1px solid rgba(59,130,246,0.1);
+      padding:0.75rem 1.25rem 0.75rem;
+    }
+    #conv-tab{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0.6rem 1.25rem;cursor:pointer;
+      border-top:1px solid rgba(255,255,255,0.05);
+      background:rgba(0,0,0,0.08);
+      transition:background 0.15s;
+      user-select:none;
+    }
+    #conv-tab:hover{ background:rgba(59,130,246,0.06); }
+    .conv-tab-left{ display:flex;align-items:center;gap:0.5rem; }
+    .conv-tab-dot{ width:6px;height:6px;border-radius:50%;background:#94a3b8;transition:background 0.3s; }
+    .conv-tab-dot.active{ background:#3b82f6;box-shadow:0 0 6px rgba(59,130,246,0.7); }
+    .conv-tab-label{ font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8; }
+    .conv-tab-arrow{ font-size:0.6rem;color:#94a3b8;transition:transform 0.3s; }
+    #conv-tab.open .conv-tab-arrow{ transform:rotate(180deg); }
+
+    #tx-scroll{ max-height:180px;overflow-y:auto;padding-right:4px; }
+    #tx-scroll::-webkit-scrollbar{width:3px;}
+    #tx-scroll::-webkit-scrollbar-track{background:transparent;}
+    #tx-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:99px;}
+
+    .tx-row{display:flex;gap:0.55rem;margin-bottom:0.45rem;align-items:flex-start;}
+    .tx-badge{flex-shrink:0;padding:0.12rem 0.45rem;border-radius:6px;font-size:0.58rem;font-weight:700;letter-spacing:0.05em;margin-top:0.1rem;}
     .tx-badge.user{background:rgba(59,130,246,0.1);color:#2563eb;}
     .tx-badge.priya{background:rgba(99,102,241,0.1);color:#4f46e5;}
-    .tx-text{color:#334155;}
-    #real-transcript::-webkit-scrollbar{width:3px;}
-    #real-transcript::-webkit-scrollbar-track{background:transparent;}
-    #real-transcript::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:99px;}
+    .tx-text{font-size:0.76rem;line-height:1.55;color:#334155;}
+    .tx-empty{ font-size:0.72rem;color:#94a3b8;text-align:center;padding:1rem 0; }
 
     /* ── CONNECTING ANIMATION ──────────────────────────────────── */
     #connect-indicator{
@@ -359,24 +381,22 @@
               </div>
             </div>
 
-            <!-- Bottom: transcript (during call) + prompts (idle) -->
-            <div class="px-5 pb-5" style="border-top:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.12);">
-              <!-- Real transcript feed -->
-              <div id="real-transcript">
-                <div id="tx-lines"></div>
+            <!-- Conversation tab -->
+            <div id="conv-tab" onclick="toggleConv()">
+              <div class="conv-tab-left">
+                <div class="conv-tab-dot" id="conv-dot"></div>
+                <span class="conv-tab-label">Conversation</span>
               </div>
+              <span class="conv-tab-arrow">▲</span>
+            </div>
 
-              <!-- Idle prompt chips -->
-              <div id="prompt-section">
-                <div class="flex items-center gap-2 pt-4 mb-3">
-                  <div class="w-1 h-3 rounded-full flex-shrink-0" style="background:#3b82f6;box-shadow:0 0 6px rgba(59,130,246,0.8);"></div>
-                  <p class="text-xs font-semibold uppercase tracking-widest" style="color:#94a3b8;">Try asking</p>
-                </div>
-                <div id="prompt-chips" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Book a table for 4 this Saturday"</button>
-                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Do you have outdoor seating?"</button>
-                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"What are your opening hours?"</button>
-                  <button class="prompt-chip rounded-xl px-3 py-2.5 text-xs text-left">"Can I modify my reservation?"</button>
+            <!-- Slide-up conversation panel -->
+            <div id="conv-panel" style="background:rgba(0,0,0,0.08);">
+              <div id="conv-inner">
+                <div id="tx-scroll">
+                  <div id="tx-lines">
+                    <p class="tx-empty">Start a conversation to see the transcript here.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -673,11 +693,20 @@
     const btnStart      = document.getElementById('btn-start-call');
     const callCtrls     = document.getElementById('call-controls');
     const connectInd    = document.getElementById('connect-indicator');
-    const realTx        = document.getElementById('real-transcript');
     const txLines       = document.getElementById('tx-lines');
-    const promptSection = document.getElementById('prompt-section');
+    const txScroll      = document.getElementById('tx-scroll');
+    const convTab       = document.getElementById('conv-tab');
+    const convPanel     = document.getElementById('conv-panel');
+    const convDot       = document.getElementById('conv-dot');
     const eqCanvas      = document.getElementById('eq-canvas');
     const eqCtx         = eqCanvas ? eqCanvas.getContext('2d') : null;
+
+    let convOpen = false;
+    function toggleConv() {
+      convOpen = !convOpen;
+      convPanel.classList.toggle('open', convOpen);
+      convTab.classList.toggle('open', convOpen);
+    }
 
     // ── Set visual state ──────────────────────────────────────────
     function setCallState(s) {
@@ -717,9 +746,8 @@
       if (callCtrls)  callCtrls.style.display    = isActive ? 'flex' : 'none';
       if (connectInd) connectInd.style.display   = s === STATES.CONNECTING ? 'flex' : 'none';
 
-      // Transcript / prompts
-      if (realTx)        realTx.style.display        = isActive ? '' : 'none';
-      if (promptSection) promptSection.style.display = isActive ? 'none' : '';
+      // Conv dot — active when call is live
+      if (convDot) convDot.classList.toggle('active', isActive);
 
       // Orb tooltip
       if (orbEl) orbEl.setAttribute('data-hint', isActive ? 'Click to end call' : 'Click to call Priya');
@@ -918,11 +946,16 @@
     // ── Transcript polling ────────────────────────────────────────
     let lastTxLen = 0;
     function renderTranscript(rows) {
-      if (!txLines || rows.length === lastTxLen) return;
-      lastTxLen = rows.length;
+      if (!txLines) return;
+      const real = rows.filter(r => r.role !== 'system');
+      if (real.length === lastTxLen) return;
+      lastTxLen = real.length;
       txLines.innerHTML = '';
-      rows.forEach(r => {
-        if (r.role === 'system') return;
+      if (!real.length) {
+        txLines.innerHTML = '<p class="tx-empty">Start a conversation to see the transcript here.</p>';
+        return;
+      }
+      real.forEach(r => {
         const div = document.createElement('div');
         div.className = 'tx-row';
         const badge = document.createElement('span');
@@ -934,7 +967,9 @@
         div.appendChild(badge); div.appendChild(text);
         txLines.appendChild(div);
       });
-      if (realTx) realTx.scrollTop = realTx.scrollHeight;
+      if (txScroll) txScroll.scrollTop = txScroll.scrollHeight;
+      // Auto-open conv panel when first message arrives
+      if (!convOpen && real.length === 1) toggleConv();
     }
 
     async function pollTranscript() {
@@ -944,7 +979,10 @@
       } catch (_) {}
       txPollId = setTimeout(pollTranscript, 1000);
     }
-    function stopPollTranscript() { clearTimeout(txPollId); txPollId = null; lastTxLen = 0; }
+    function stopPollTranscript() {
+      clearTimeout(txPollId); txPollId = null; lastTxLen = 0;
+      if (txLines) txLines.innerHTML = '<p class="tx-empty">Start a conversation to see the transcript here.</p>';
+    }
 
     // ── Idle EQ animation ─────────────────────────────────────────
     (function idleLoop() { if (!rafId) { drawEQ(); } requestAnimationFrame(idleLoop); })();
