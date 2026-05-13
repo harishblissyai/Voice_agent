@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 from collections import deque
+from datetime import datetime, timezone, timedelta
 
 import aiohttp
 from dotenv import load_dotenv
@@ -33,7 +34,17 @@ from pipecat.services.tts_service import TextAggregationMode
 
 load_dotenv()
 
-SYSTEM_PROMPT = """# Personality
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+def _build_system_prompt() -> str:
+    now = datetime.now(_IST)
+    date_str = now.strftime("%A, %d %B %Y")
+    time_str = now.strftime("%I:%M %p")
+    return f"""# Session Context
+Today is {date_str}. Current time is {time_str} IST (Indian Standard Time, UTC+5:30).
+Use this to resolve "today", "tomorrow", "this weekend", "tonight" etc. precisely.
+
+# Personality
 You are Priya, the warm and respectful table-reservations host at Blissy Restaurant, Chennai. You make every caller feel welcome like an old friend — friendly, unhurried, and quietly efficient. You handle booking requests with the ease of someone who greets guests at the door every evening.
 
 # Environment
@@ -83,6 +94,7 @@ Then confirm all four in one short warm line before closing.
 - Never rephrase the same question twice back-to-back.
 - Briefly acknowledge the caller's last answer before asking the next question.
 - If the caller is silent or unclear, gently re-ask once in different words, then wait.
+- NEVER ask for information the caller has already provided in this conversation. If they gave date, time, guests, and name across multiple turns — use all of it. Skip any field already answered and move to the next missing one.
 
 # TTS / Output Rules
 - Spoken reply only. No markdown, no symbols, no emoji, no bullet points.
@@ -247,6 +259,40 @@ class VoiceSwitcher(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+class FillerWordInjector(FrameProcessor):
+    """Injects a short filler ('hmm...', 'haan...') before Priya's first word each turn.
+    Gives the caller something to hear immediately, masking LLM + TTS startup latency.
+    Only fires once per turn; resets after each LLMFullResponseEndFrame.
+    """
+    _FILLERS = {
+        Language.TA_IN: ["hmm...", "சரி..."],
+        Language.HI_IN: ["haan...", "ji..."],
+        Language.KN_IN: ["hmm...", "haan..."],
+        Language.ML_IN: ["hmm...", "haan..."],
+        Language.TE_IN: ["hmm...", "haan..."],
+        Language.EN_IN: ["hmm...", "ah..."],
+    }
+    _DEFAULT = ["hmm...", "haan...", "ah..."]
+
+    def __init__(self, language_state: LanguageState, **kwargs):
+        super().__init__(**kwargs)
+        self._state    = language_state
+        self._new_turn = True
+        self._idx      = 0
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, LLMFullResponseEndFrame):
+            self._new_turn = True
+        elif isinstance(frame, TextFrame) and frame.text and frame.text.strip() and self._new_turn:
+            self._new_turn = False
+            pool   = self._FILLERS.get(self._state.current, self._DEFAULT)
+            filler = pool[self._idx % len(pool)]
+            self._idx += 1
+            await self.push_frame(TTSSpeakFrame(filler), direction)
+        await self.push_frame(frame, direction)
+
+
 class SarvamLangSwitcher(FrameProcessor):
     """Updates Sarvam TTS language setting before each utterance based on LanguageState."""
     def __init__(self, tts: SarvamTTSService, language_state: LanguageState, **kwargs):
@@ -341,7 +387,7 @@ def _make_llm(provider: str):
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
                 model="claude-sonnet-4-6",
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=_build_system_prompt(),
                 max_tokens=120,
                 enable_prompt_caching=True,
             ),
@@ -353,7 +399,7 @@ def _make_llm(provider: str):
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
                 model="claude-opus-4-7",
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=_build_system_prompt(),
                 max_tokens=100,
                 enable_prompt_caching=True,
             ),
@@ -365,7 +411,7 @@ def _make_llm(provider: str):
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
                 model="claude-haiku-4-5-20251001",
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=_build_system_prompt(),
                 max_tokens=120,
                 enable_prompt_caching=True,
             ),
@@ -402,7 +448,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
             aiohttp_session=_el_stt_session,
             settings=ElevenLabsSTTService.Settings(
                 model="scribe_v2",
-                language=Language.TA,
+                language=None,
             ),
         )
         silero_vad = SileroVADProcessor(stop_secs=0.3)
@@ -417,8 +463,8 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
                 high_vad_sensitivity=True,
                 positive_speech_threshold=0.6,
                 negative_speech_threshold=0.3,
-                negative_frames_count=2,
-                negative_frames_window=6,
+                negative_frames_count=1,
+                negative_frames_window=4,
             ),
         )
         silero_vad = None
@@ -428,7 +474,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
 
     if system_in_context:
         context = LLMContext(
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}],
+            messages=[{"role": "system", "content": _build_system_prompt()}],
             tools=tools,
         )
     else:
@@ -447,6 +493,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
     language_detector = LanguageDetectorProcessor(language_state)
 
     _pre_stt = [silero_vad] if silero_vad else []
+    filler_injector = FillerWordInjector(language_state=language_state)
 
     # ── Build TTS section and pipeline ───────────────────────────────────────
     if tts_provider == "elevenlabs":
@@ -454,14 +501,14 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         tts_node = ElevenLabsTTSService(
             api_key=os.environ["ELEVENLABS_API_KEY"],
             auto_mode=True,
-            text_aggregation_mode=TextAggregationMode.SENTENCE,
+            text_aggregation_mode=TextAggregationMode.WORD,
             settings=ElevenLabsTTSService.Settings(
-                model="eleven_turbo_v2_5",
+                model="eleven_flash_v2_5",
                 voice=_el_ta_voice,
-                stability=0.30 if expressive else 0.45,
+                stability=0.30 if expressive else 0.35,
                 similarity_boost=0.8,
-                style=0.20 if expressive else 0.0,
-                speed=1.0,
+                style=0.20 if expressive else 0.05,
+                speed=1.05,
                 apply_text_normalization="off",
             ),
         )
@@ -481,6 +528,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
             pair.user(),
             llm_service,
             priya_logger,
+            filler_injector,
             voice_switcher,
             tts_node,
             tts_timing_log,
@@ -489,7 +537,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         ])
 
 
-    task = PipelineTask(pipeline)
+    task = PipelineTask(pipeline, allow_interruptions=True)
 
     async def handle_save_booking(params):
         args = params.arguments
@@ -517,6 +565,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி help பண்ணட்டும் sir?"
         if transcript is not None:
             transcript.append({"role": "priya", "text": greeting})
+        await asyncio.sleep(0.5)
         await task.queue_frame(TTSSpeakFrame(greeting))
 
     @transport.event_handler("on_client_disconnected")
@@ -524,16 +573,39 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         await task.queue_frame(EndFrame())
 
     async def _prewarm():
-        try:
-            import anthropic as _anthropic
-            client = _anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-            await client.messages.create(
-                model="claude-haiku-4-5-20251001", max_tokens=1,
-                messages=[{"role": "user", "content": "hi"}],
-            )
-            logger.debug("Anthropic pre-warm done")
-        except Exception as e:
-            logger.debug(f"Anthropic pre-warm skipped: {e}")
+        import asyncio as _asyncio
+
+        async def _warm_anthropic():
+            try:
+                from anthropic import AsyncAnthropic as _AsyncAnthropic
+                client = _AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+                model = "claude-opus-4-7" if llm_provider == "opus" else (
+                    "claude-sonnet-4-6" if llm_provider == "sonnet" else "claude-haiku-4-5-20251001"
+                )
+                await client.messages.create(
+                    model=model, max_tokens=1,
+                    messages=[{"role": "user", "content": "hi"}],
+                )
+                logger.debug("Anthropic pre-warm done")
+            except Exception as e:
+                logger.debug(f"Anthropic pre-warm skipped: {e}")
+
+        async def _warm_elevenlabs():
+            if tts_provider != "elevenlabs":
+                return
+            try:
+                _voice = voice_id or os.environ.get("ELEVENLABS_VOICE_TA", "")
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{_voice}/stream"
+                headers = {"xi-api-key": os.environ["ELEVENLABS_API_KEY"], "Content-Type": "application/json"}
+                payload = {"text": " ", "model_id": "eleven_flash_v2_5", "voice_settings": {"stability": 0.35, "similarity_boost": 0.8}}
+                async with aiohttp.ClientSession() as s:
+                    async with s.post(url, json=payload, headers=headers) as r:
+                        await r.read()
+                logger.debug("ElevenLabs pre-warm done")
+            except Exception as e:
+                logger.debug(f"ElevenLabs pre-warm skipped: {e}")
+
+        await _asyncio.gather(_warm_anthropic(), _warm_elevenlabs())
 
     asyncio.create_task(_prewarm())
 
