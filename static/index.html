@@ -417,6 +417,9 @@
     .demo-pill.connecting .dp { background:#f0b429; animation:blink 0.6s ease-in-out infinite; }
     .btn-demo-action { padding:0.3rem 0.8rem; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:#4b5563; font-size:0.63rem; font-weight:700; letter-spacing:0.05em; cursor:pointer; transition:all 0.15s; }
     .btn-demo-action:hover { border-color:rgba(255,255,255,0.18); color:#9ca3af; background:rgba(255,255,255,0.03); }
+    .demo-model-badge { display:inline-flex; align-items:center; padding:0.22rem 0.65rem; border-radius:20px; background:rgba(120,60,200,0.12); border:1px solid rgba(120,60,200,0.25); color:#a78bfa; font-size:0.58rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; transition:opacity 0.2s; }
+    .demo-model-badge.hidden { opacity:0; pointer-events:none; width:0; padding:0; border-width:0; overflow:hidden; }
+    .btn-demo-model-toggle { font-size:0.75rem; padding:0.28rem 0.55rem; }
     .btn-demo-action.active { border-color:rgba(240,180,41,0.4); color:#f0b429; background:rgba(240,180,41,0.07); }
     .btn-demo-exit { border-color:rgba(239,68,68,0.2); color:#6b7280; }
     .btn-demo-exit:hover { border-color:rgba(239,68,68,0.5); color:#ef4444; background:rgba(239,68,68,0.05); }
@@ -561,12 +564,6 @@
         <span class="sel-lbl">TTS</span>
         <div class="chips" id="tts-chips">
           <button class="chip active" data-tts="elevenlabs">ElevenLabs</button>
-        </div>
-      </div>
-      <div class="sel-row" id="voice-row">
-        <span class="sel-lbl">VOICE</span>
-        <div class="chips" id="voice-chips">
-          <span style="opacity:0.4;font-size:11px">Loading…</span>
         </div>
       </div>
       <div class="sel-row">
@@ -762,6 +759,8 @@
     </div>
     <div class="demo-topbar-actions">
       <div class="demo-pill" id="demo-pill"><div class="dp"></div><span id="demo-pill-lbl">Idle</span></div>
+      <span class="demo-model-badge" id="demo-model-badge"></span>
+      <button class="btn-demo-action btn-demo-model-toggle" id="btn-toggle-model" onclick="toggleDemoModel()" title="Toggle model info">◈</button>
       <button class="btn-demo-action" id="btn-toggle-conv" onclick="toggleDemoConv()">💬 Conversation</button>
       <button class="btn-demo-action" onclick="clearDemoTranscript()">Clear</button>
       <button class="btn-demo-action btn-demo-exit" onclick="closeDemo()">✕ Exit</button>
@@ -865,8 +864,8 @@
     });
   }
   setupChips('stt-chips','stt', v => selectedSTT = v);
-  setupChips('llm-chips','llm', v => selectedLLM = v);
-  setupChips('tts-chips','tts', v => { selectedTTS = v; renderVoiceChips(v); });
+  setupChips('llm-chips','llm', v => { selectedLLM = v; updateDemoModelBadge(); });
+  setupChips('tts-chips','tts', v => { selectedTTS = v; });
 
   document.getElementById('expressive-chip').addEventListener('click', () => {
     if (state !== States.IDLE) return;
@@ -874,43 +873,20 @@
     document.getElementById('expressive-chip').classList.toggle('active', expressive);
   });
 
-  // ── VOICE CHIPS ────────────────────────────────────────────────────
-  async function loadVoices() {
-    try {
-      const res = await fetch('/voices');
-      voiceConfig = await res.json();
-      renderVoiceChips(selectedTTS);
-    } catch(e) { console.warn('Could not load voices', e); }
-  }
-
-  function renderVoiceChips(tts) {
-    const container = document.getElementById('voice-chips');
-    const voices = (voiceConfig[tts] || []).filter(v => v.id);
-    if (!voices.length) {
-      container.innerHTML = '<span style="opacity:0.4;font-size:11px">No extra voices configured</span>';
-      selectedVoice = null;
-      return;
-    }
-    container.innerHTML = '';
-    voices.forEach((v, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (i === 0 ? ' active' : '');
-      btn.textContent = v.label;
-      btn.dataset.voice = v.id;
-      btn.addEventListener('click', () => {
-        if (state !== States.IDLE) return;
-        container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedVoice = v.id;
-      });
-      container.appendChild(btn);
-    });
-    selectedVoice = voices[0].id;
-  }
-
-  loadVoices();
-
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ── DEMO MODEL BADGE ───────────────────────────────────────────────
+  let demoModelVisible = true;
+  function updateDemoModelBadge() {
+    const li = PROV_INFO.llm[selectedLLM];
+    const badge = document.getElementById('demo-model-badge');
+    if (badge) badge.textContent = li ? li.name : cap(selectedLLM);
+  }
+  function toggleDemoModel() {
+    demoModelVisible = !demoModelVisible;
+    document.getElementById('demo-model-badge').classList.toggle('hidden', !demoModelVisible);
+  }
+  updateDemoModelBadge();
 
   function updateProviders() {
     document.getElementById('hdr-stt').textContent = cap(selectedSTT);
