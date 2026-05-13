@@ -23,18 +23,13 @@ from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
+from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
-# ── LLM services ─────────────────────────────────────────────────────────────
-from pipecat.services.groq.llm import GroqLLMService              # Groq / Llama
-from pipecat.services.sarvam.llm import SarvamLLMService          # Sarvam / Indian
-# from pipecat.services.anthropic.llm import AnthropicLLMService  # loaded on demand
-
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
-from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.services.rime.tts import RimeTTSService
+from pipecat.services.tts_service import TextAggregationMode
 
 load_dotenv()
 
@@ -335,89 +330,52 @@ class TTSTimingLogger(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
-# ── n8n webhook ───────────────────────────────────────────────────────────────
-
-async def _post_to_n8n(data: dict) -> bool:
-    webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
-    if not webhook_url:
-        logger.warning("N8N_WEBHOOK_URL not set — booking data not saved")
-        return False
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=data, timeout=aiohttp.ClientTimeout(total=8)) as r:
-                logger.info(f"n8n webhook response: {r.status}")
-                return r.status < 300
-    except Exception as e:
-        logger.error(f"n8n webhook error: {e}")
-        return False
 
 
 # ── Service factories ─────────────────────────────────────────────────────────
 
 def _make_llm(provider: str):
     """Return (llm_service, needs_system_in_context)."""
-    if provider == "sarvam":
-        svc = SarvamLLMService(
-            api_key=os.environ["SARVAM_API_KEY"],
-            settings=SarvamLLMService.Settings(
-                model="sarvam-30b",
-                system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
-                temperature=0.6,
-            ),
-        )
-        return svc, False
-
-    elif provider == "groq":
-        svc = GroqLLMService(
-            api_key=os.environ["GROQ_API_KEY"],
-            settings=GroqLLMService.Settings(
-                model="llama-3.3-70b-versatile",
-                temperature=0.6,
-                max_tokens=300,
-            ),
-        )
-        return svc, True
-
-    elif provider == "anthropic":
-        from pipecat.services.anthropic.llm import AnthropicLLMService
+    if provider == "sonnet":
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
-                model="claude-haiku-4-5-20251001",
+                model="claude-sonnet-4-6",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=300,
+                max_tokens=120,
+                enable_prompt_caching=True,
             ),
         )
         return svc, False
 
     elif provider == "opus":
-        from pipecat.services.anthropic.llm import AnthropicLLMService
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             settings=AnthropicLLMService.Settings(
                 model="claude-opus-4-7",
                 system_instruction=SYSTEM_PROMPT,
-                max_tokens=180,
+                max_tokens=100,
+                enable_prompt_caching=True,
             ),
         )
         return svc, False
 
-    else:  # default: groq
-        svc = GroqLLMService(
-            api_key=os.environ["GROQ_API_KEY"],
-            settings=GroqLLMService.Settings(
-                model="llama-3.3-70b-versatile",
-                temperature=0.7,
-                max_tokens=300,
+    else:  # default: anthropic haiku
+        svc = AnthropicLLMService(
+            api_key=os.environ["ANTHROPIC_API_KEY"],
+            settings=AnthropicLLMService.Settings(
+                model="claude-haiku-4-5-20251001",
+                system_instruction=SYSTEM_PROMPT,
+                max_tokens=120,
+                enable_prompt_caching=True,
             ),
         )
-        return svc, True
+        return svc, False
 
 
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
-async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, expressive: bool = False, transcript: deque = None):
+async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, expressive: bool = False, transcript: deque = None):
     logger.info(f"Starting bot — STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider} | Voice: {voice_id or 'default'}")
     if transcript is not None:
         transcript.append({"role": "system", "text": f"Call started | STT: {stt_provider} | LLM: {llm_provider} | TTS: {tts_provider}"})
@@ -459,7 +417,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
                 high_vad_sensitivity=True,
                 positive_speech_threshold=0.6,
                 negative_speech_threshold=0.3,
-                negative_frames_count=3,
+                negative_frames_count=2,
                 negative_frames_window=6,
             ),
         )
@@ -496,13 +454,15 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
         tts_node = ElevenLabsTTSService(
             api_key=os.environ["ELEVENLABS_API_KEY"],
             auto_mode=True,
+            text_aggregation_mode=TextAggregationMode.SENTENCE,
             settings=ElevenLabsTTSService.Settings(
                 model="eleven_turbo_v2_5",
                 voice=_el_ta_voice,
                 stability=0.30 if expressive else 0.45,
                 similarity_boost=0.8,
-                style=0.60 if expressive else 0.0,
+                style=0.20 if expressive else 0.0,
                 speed=1.0,
+                apply_text_normalization="off",
             ),
         )
         voice_switcher = VoiceSwitcher(
@@ -528,82 +488,6 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
             pair.assistant(),
         ])
 
-    elif tts_provider == "sarvam":
-        tts_node = SarvamTTSService(
-            api_key=os.environ["SARVAM_API_KEY"],
-            settings=SarvamTTSService.Settings(
-                model="bulbul:v3-beta",
-                language=Language.TA_IN,
-                voice=voice_id or "simran",
-                pace=1.0,
-            ),
-        )
-        lang_switcher = SarvamLangSwitcher(tts_node, language_state)
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            lang_switcher,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
-
-    elif tts_provider == "rime":
-        tts_node = RimeTTSService(
-            api_key=os.environ["RIME_API_KEY"],
-            settings=RimeTTSService.Settings(
-                model="mistv2",
-                voice=voice_id or "indira",
-            ),
-        )
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
-
-    else:  # cartesia — single Tamil voice, no language switching
-        tts_node = CartesiaTTSService(
-            api_key=os.environ["CARTESIA_API_KEY"],
-            settings=CartesiaTTSService.Settings(
-                model="sonic-3",
-                voice=voice_id or os.environ["CARTESIA_VOICE_ID"],
-                language=Language.TA,
-            ),
-        )
-
-        pipeline = Pipeline([
-            transport.input(),
-            *_pre_stt,
-            stt,
-            language_detector,
-            user_logger,
-            pair.user(),
-            llm_service,
-            priya_logger,
-            tts_node,
-            tts_timing_log,
-            transport.output(),
-            pair.assistant(),
-        ])
 
     task = PipelineTask(pipeline)
 
@@ -612,11 +496,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
         logger.info(f"save_booking: {args}")
         if transcript is not None:
             transcript.append({"role": "booking", "text": str(args)})
-        ok = await _post_to_n8n(args)
-        if ok:
-            await params.result_callback("Details saved. Proceed with the confirmation line.")
-        else:
-            await params.result_callback("Details noted locally. Proceed with the confirmation line.")
+        await params.result_callback("Details noted. Proceed with the confirmation line.")
 
     async def handle_end_call(params):
         logger.info("end_call triggered")
@@ -642,6 +522,20 @@ async def run_bot(webrtc_connection, llm_provider: str = "groq", tts_provider: s
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, connection):
         await task.queue_frame(EndFrame())
+
+    async def _prewarm():
+        try:
+            import anthropic as _anthropic
+            client = _anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+            await client.messages.create(
+                model="claude-haiku-4-5-20251001", max_tokens=1,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            logger.debug("Anthropic pre-warm done")
+        except Exception as e:
+            logger.debug(f"Anthropic pre-warm skipped: {e}")
+
+    asyncio.create_task(_prewarm())
 
     runner = PipelineRunner(handle_sigint=False)
     try:
