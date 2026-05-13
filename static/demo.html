@@ -660,6 +660,11 @@
 
   <!-- ── JAVASCRIPT ────────────────────────────────────────────── -->
   <script>
+    // Backend URL — empty = same origin (local dev).
+    // On S3/CloudFront set this to your EC2 CloudFront HTTPS URL, e.g.:
+    //   const BACKEND_URL = 'https://api.blissyai.com';
+    const BACKEND_URL = window.__BACKEND_URL__ || '';
+
     // ── Config from URL params (passed from index.html) ──────────
     const urlParams = new URLSearchParams(window.location.search);
     const CFG = {
@@ -822,7 +827,7 @@
       });
 
       try {
-        const resp = await fetch('/offer', {
+        const resp = await fetch(BACKEND_URL+'/offer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -974,7 +979,7 @@
 
     async function pollTranscript() {
       try {
-        const r = await fetch('/transcript');
+        const r = await fetch(BACKEND_URL+'/transcript');
         if (r.ok) renderTranscript(await r.json());
       } catch (_) {}
       txPollId = setTimeout(pollTranscript, 1000);
