@@ -113,13 +113,6 @@ async def get_transcript():
     return JSONResponse(list(transcript))
 
 
-@app.post("/api/clear")
-@app.post("/clear")
-async def clear_transcript():
-    transcript.clear()
-    return {"status": "ok"}
-
-
 @app.get("/api/logs")
 @app.get("/logs")
 async def get_logs():
