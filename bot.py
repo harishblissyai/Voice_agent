@@ -626,17 +626,21 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         ),
     )
 
-    _voice_id = (
-        os.environ.get("ELEVENLABS_VOICE_ID")
-        or os.environ.get("ELEVENLABS_VOICE_TA")
-        or os.environ.get("ELEVENLABS_VOICE_EN")
-        or ""
-    )
+    _voice_id = os.environ.get("ELEVENLABS_VOICE_TA") or os.environ.get("ELEVENLABS_VOICE_EN") or ""
+    logger.info(f"Twilio TTS voice_id={_voice_id!r}")
     tts = ElevenLabsTTSService(
         api_key=os.environ["ELEVENLABS_API_KEY"],
-        voice_id=_voice_id,
-        model="eleven_turbo_v2_5",
+        auto_mode=True,
         text_aggregation_mode=TextAggregationMode.SENTENCE,
+        settings=ElevenLabsTTSService.Settings(
+            model="eleven_turbo_v2_5",
+            voice=_voice_id,
+            stability=0.45,
+            similarity_boost=0.8,
+            style=0.0,
+            speed=1.0,
+            apply_text_normalization="off",
+        ),
     )
 
     context = LLMContext(tools=ToolsSchema(standard_tools=[SAVE_BOOKING_SCHEMA, END_CALL_SCHEMA]))
