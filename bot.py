@@ -26,8 +26,11 @@ from pipecat.transcriptions.language import Language
 from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
+from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
 
 # ── TTS services ─────────────────────────────────────────────────────────────
+from pipecat.serializers.twilio import TwilioFrameSerializer
+from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.tts_service import TextAggregationMode
 
@@ -382,6 +385,38 @@ def _make_llm(provider: str):
         return svc, False
 
 
+# ── Shared booking/end helpers (used by both WebRTC and Twilio paths) ─────────
+
+async def _save_booking_impl(args: dict, transcript):
+    logger.info(f"save_booking: {args}")
+    parts = []
+    if args.get("name"):     parts.append(f"Name: {args['name']}")
+    if args.get("date"):     parts.append(f"Date: {args['date']}")
+    if args.get("time"):     parts.append(f"Time: {args['time']}")
+    if args.get("guests"):   parts.append(f"Guests: {args['guests']}")
+    if args.get("occasion"): parts.append(f"Occasion: {args['occasion']}")
+    if args.get("dietary"):  parts.append(f"Dietary: {args['dietary']}")
+    booking_text = " | ".join(parts)
+    if transcript is not None:
+        transcript.append({"role": "booking", "text": booking_text})
+    webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
+    if webhook_url:
+        try:
+            payload = {
+                "name":     args.get("name", ""),
+                "date":     args.get("date", ""),
+                "time":     args.get("time", ""),
+                "guests":   args.get("guests", ""),
+                "occasion": args.get("occasion", ""),
+                "dietary":  args.get("dietary", ""),
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(webhook_url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as r:
+                    logger.info(f"n8n webhook: {r.status}")
+        except Exception as e:
+            logger.error(f"n8n webhook error: {e}")
+
+
 # ── Bot entry point ───────────────────────────────────────────────────────────
 
 async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provider: str = "elevenlabs", stt_provider: str = "sarvam", voice_id: str = None, expressive: bool = False, transcript: deque = None):
@@ -501,28 +536,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
     task = PipelineTask(pipeline)
 
     async def handle_save_booking(params):
-        args = params.arguments
-        logger.info(f"save_booking: {args}")
-        # Format booking details as readable text
-        parts = []
-        if args.get("name"):    parts.append(f"Name: {args['name']}")
-        if args.get("date"):    parts.append(f"Date: {args['date']}")
-        if args.get("time"):    parts.append(f"Time: {args['time']}")
-        if args.get("guests"):  parts.append(f"Guests: {args['guests']}")
-        if args.get("occasion"):parts.append(f"Occasion: {args['occasion']}")
-        if args.get("dietary"): parts.append(f"Dietary: {args['dietary']}")
-        booking_text = " | ".join(parts)
-        if transcript is not None:
-            transcript.append({"role": "booking", "text": booking_text})
-        # Post to n8n webhook if configured
-        webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
-        if webhook_url:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(webhook_url, json=args, timeout=aiohttp.ClientTimeout(total=5)) as r:
-                        logger.info(f"n8n webhook: {r.status}")
-            except Exception as e:
-                logger.error(f"n8n webhook error: {e}")
+        await _save_booking_impl(params.arguments, transcript)
         await params.result_callback("Booking saved successfully. Now speak the confirmation line to the caller with all four details. Do NOT call end_call yet — wait for the caller to respond.")
 
     async def handle_end_call(params):
@@ -571,3 +585,99 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
     finally:
         if _el_stt_session:
             await _el_stt_session.close()
+
+
+# ── Twilio phone-call entry point ─────────────────────────────────────────────
+
+async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: deque = None):
+    logger.info(f"Twilio call started — stream_sid={stream_sid} call_sid={call_sid}")
+    if transcript is not None:
+        transcript.append({"role": "system", "text": f"Phone call started | stream_sid={stream_sid}"})
+
+    serializer = TwilioFrameSerializer(
+        stream_sid=stream_sid,
+        call_sid=call_sid,
+        account_sid=os.environ["TWILIO_ACCOUNT_SID"],
+        auth_token=os.environ["TWILIO_AUTH_TOKEN"],
+        auto_hang_up=True,
+    )
+    transport = FastAPIWebsocketTransport(
+        websocket=websocket,
+        params=FastAPIWebsocketParams(serializer=serializer),
+    )
+
+    # Deepgram at 8 kHz to match Twilio's telephony audio
+    stt = DeepgramSTTService(
+        api_key=os.environ["DEEPGRAM_API_KEY"],
+        settings=DeepgramSTTService.Settings(
+            model="nova-3",
+            language="en-IN",
+            punctuate=True,
+            interim_results=True,
+            endpointing=400,
+            encoding="linear16",
+            sample_rate=8000,
+        ),
+    )
+
+    llm_service = AnthropicLLMService(
+        api_key=os.environ["ANTHROPIC_API_KEY"],
+        model="claude-haiku-4-5-20251001",
+        enable_prompt_caching=True,
+    )
+
+    tts = ElevenLabsTTSService(
+        api_key=os.environ["ELEVENLABS_API_KEY"],
+        voice_id=os.environ.get("ELEVENLABS_VOICE_ID", ""),
+        model="eleven_turbo_v2_5",
+        text_aggregation_mode=TextAggregationMode.SENTENCE,
+    )
+
+    context = LLMContext(
+        system=SYSTEM_PROMPT,
+        tools=ToolsSchema(standard_tools=[SAVE_BOOKING_SCHEMA, END_CALL_SCHEMA]),
+    )
+    pair = LLMContextAggregatorPair.create(llm_service, context)
+
+    pipeline = Pipeline([
+        transport.input(),
+        stt,
+        pair.user(),
+        llm_service,
+        tts,
+        transport.output(),
+        pair.assistant(),
+    ])
+    task = PipelineTask(pipeline)
+
+    async def handle_save_booking(params):
+        await _save_booking_impl(params.arguments, transcript)
+        await params.result_callback("Booking saved successfully. Now speak the confirmation line to the caller with all four details. Do NOT call end_call yet — wait for the caller to respond.")
+
+    async def handle_end_call(params):
+        logger.info("end_call triggered (Twilio)")
+        if transcript is not None:
+            transcript.append({"role": "system", "text": "Call ended"})
+        await params.result_callback("Call ended.")
+        async def _delayed_end():
+            await asyncio.sleep(6)
+            await task.cancel()
+        asyncio.create_task(_delayed_end())
+
+    llm_service.register_function("save_booking", handle_save_booking)
+    llm_service.register_function("end_call", handle_end_call)
+
+    @transport.event_handler("on_client_connected")
+    async def on_client_connected(transport, connection):
+        greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி help பண்ணட்டும் sir?"
+        if transcript is not None:
+            transcript.append({"role": "priya", "text": greeting})
+        await asyncio.sleep(0.5)
+        await task.queue_frame(TTSSpeakFrame(greeting))
+
+    @transport.event_handler("on_client_disconnected")
+    async def on_client_disconnected(transport, connection):
+        await task.queue_frame(EndFrame())
+
+    runner = PipelineRunner(handle_sigint=False)
+    await runner.run(task)

@@ -1,0 +1,146 @@
+{
+  "name": "My workflow 6",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Voice_agent",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "aaad9c63-d625-41e4-adcc-e14a39c3812d",
+      "name": "Webhook",
+      "webhookId": "4aed54d4-7e9f-417f-afeb-608b122a10a1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "100cB6ODP7N1Ae_BSpaHrUhY4GKc2Vb__HASmu7Z5RgY",
+          "mode": "list",
+          "cachedResultName": "LeadPilot - hr@entalix-systems.com\n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/100cB6ODP7N1Ae_BSpaHrUhY4GKc2Vb__HASmu7Z5RgY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 695306266,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/100cB6ODP7N1Ae_BSpaHrUhY4GKc2Vb__HASmu7Z5RgY/edit#gid=695306266"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name":     "={{ $json.body.name }}",
+            "date":     "={{ $json.body.date }}",
+            "time":     "={{ $json.body.time }}",
+            "guests":   "={{ $json.body.guests }}",
+            "occasion": "={{ $json.body.occasion || '' }}",
+            "dietary":  "={{ $json.body.dietary || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "guests",
+              "displayName": "guests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "occasion",
+              "displayName": "occasion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dietary",
+              "displayName": "dietary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [208, 0],
+      "id": "feff9d8e-8294-4203-b50e-908c3c7b227e",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "kAmZv0algps2m9ZI",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4e869acd-9973-4ffa-bd39-98d62af79b17",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "36446d9c8e8fc33e54af881db410eddb4289a8f51e232a882cc1b59fd37537d4"
+  },
+  "id": "MF6FWazYEQMhM58y",
+  "tags": []
+}

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import sys
 from collections import deque
@@ -6,9 +7,9 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response as PlainResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
@@ -31,7 +32,7 @@ from pipecat.transports.smallwebrtc.request_handler import (
     SmallWebRTCRequestHandler,
 )
 
-from bot import run_bot
+from bot import run_bot, run_bot_twilio
 
 load_dotenv()
 
@@ -123,6 +124,42 @@ async def get_logs():
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "Blissy Restaurant Bot"}
+
+
+# ── Twilio phone-call routes ───────────────────────────────────────────────────
+
+@app.post("/api/twilio/incoming")
+@app.post("/twilio/incoming")
+async def twilio_incoming(request: Request):
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    ws_url = f"wss://{host}/api/twilio/stream"
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        f'<Connect><Stream url="{ws_url}"/></Connect>'
+        "</Response>"
+    )
+    return PlainResponse(content=twiml, media_type="text/xml")
+
+
+@app.websocket("/api/twilio/stream")
+@app.websocket("/twilio/stream")
+async def twilio_stream(websocket: WebSocket):
+    await websocket.accept()
+    stream_sid = None
+    call_sid = None
+    async for raw in websocket.iter_text():
+        msg = json.loads(raw)
+        if msg.get("event") == "start":
+            stream_sid = msg["start"]["streamSid"]
+            call_sid   = msg["start"]["callSid"]
+            break
+        if msg.get("event") not in ("connected",):
+            break
+    if not stream_sid:
+        await websocket.close()
+        return
+    await run_bot_twilio(websocket, stream_sid, call_sid, transcript=transcript)
 
 
 if __name__ == "__main__":
