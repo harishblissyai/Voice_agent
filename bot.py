@@ -496,8 +496,26 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
     async def handle_save_booking(params):
         args = params.arguments
         logger.info(f"save_booking: {args}")
+        # Format booking details as readable text
+        parts = []
+        if args.get("name"):    parts.append(f"Name: {args['name']}")
+        if args.get("date"):    parts.append(f"Date: {args['date']}")
+        if args.get("time"):    parts.append(f"Time: {args['time']}")
+        if args.get("guests"):  parts.append(f"Guests: {args['guests']}")
+        if args.get("occasion"):parts.append(f"Occasion: {args['occasion']}")
+        if args.get("dietary"): parts.append(f"Dietary: {args['dietary']}")
+        booking_text = " | ".join(parts)
         if transcript is not None:
-            transcript.append({"role": "booking", "text": str(args)})
+            transcript.append({"role": "booking", "text": booking_text})
+        # Post to n8n webhook if configured
+        webhook_url = os.environ.get("N8N_WEBHOOK_URL", "")
+        if webhook_url:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(webhook_url, json=args, timeout=aiohttp.ClientTimeout(total=5)) as r:
+                        logger.info(f"n8n webhook: {r.status}")
+            except Exception as e:
+                logger.error(f"n8n webhook error: {e}")
         await params.result_callback("Booking saved. Now speak the confirmation line to the caller, then immediately call end_call.")
 
     async def handle_end_call(params):
