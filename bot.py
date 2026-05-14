@@ -599,7 +599,7 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         call_sid=call_sid,
         account_sid=os.environ["TWILIO_ACCOUNT_SID"],
         auth_token=os.environ["TWILIO_AUTH_TOKEN"],
-        auto_hang_up=True,
+        params=TwilioFrameSerializer.InputParams(auto_hang_up=True),
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
