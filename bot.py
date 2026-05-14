@@ -601,13 +601,16 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         auth_token=os.environ["TWILIO_AUTH_TOKEN"],
         params=TwilioFrameSerializer.InputParams(
             auto_hang_up=True,
-            sample_rate=22050,  # ElevenLabs TTS output rate; serializer resamples to 8kHz μ-law
+            # sample_rate=None → serializer uses audio_in_sample_rate=8000 from StartFrame
+            # for Twilio μ-law→PCM (input path). Output path uses frame.sample_rate=22050.
         ),
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
         params=FastAPIWebsocketParams(
             serializer=serializer,
+            audio_in_enabled=True,
+            audio_out_enabled=True,
             audio_out_sample_rate=22050,  # must match ElevenLabs TTS output rate
             audio_in_sample_rate=8000,    # Twilio sends 8kHz PCM
         ),
