@@ -649,9 +649,9 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         sample_rate=22050,  # force pcm_22050; avoids pcm_8000 (unsupported by ElevenLabs)
         text_aggregation_mode=TextAggregationMode.SENTENCE,
         settings=ElevenLabsTTSService.Settings(
-            model="eleven_turbo_v2_5",
+            model="eleven_flash_v2_5",
             voice=_voice_id,
-            stability=0.45,
+            stability=0.5,
             similarity_boost=0.8,
             style=0.0,
             speed=1.0,
