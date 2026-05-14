@@ -30,7 +30,6 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPI
 
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.serializers.twilio import TwilioFrameSerializer
-from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.tts_service import TextAggregationMode
 
@@ -149,17 +148,18 @@ class SileroVADProcessor(FrameProcessor):
     VADUserStoppedSpeakingFrame to know when to buffer and flush audio.
     SmallWebRTC transport has no built-in VAD, so this processor fills the gap.
     """
-    def __init__(self, stop_secs: float = 0.3, **kwargs):
+    def __init__(self, stop_secs: float = 0.3, sample_rate: int = 16000, **kwargs):
         super().__init__(**kwargs)
         from pipecat.audio.vad.silero import SileroVADAnalyzer
         from pipecat.audio.vad.vad_analyzer import VADParams
         self._vad = SileroVADAnalyzer(params=VADParams(stop_secs=stop_secs))
+        self._sample_rate = sample_rate
         self._speaking = False
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
         if isinstance(frame, StartFrame):
-            self._vad.set_sample_rate(16000)
+            self._vad.set_sample_rate(self._sample_rate)
         elif isinstance(frame, AudioRawFrame):
             from pipecat.audio.vad.vad_analyzer import VADState
             state = await self._vad.analyze_audio(frame.audio)
@@ -606,23 +606,18 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         params=FastAPIWebsocketParams(serializer=serializer),
     )
 
-    # Deepgram at 8 kHz to match Twilio's telephony audio
-    stt = DeepgramSTTService(
-        api_key=os.environ["DEEPGRAM_API_KEY"],
-        settings=DeepgramSTTService.Settings(
-            model="nova-3",
-            language="en-IN",
-            punctuate=True,
-            interim_results=True,
-            endpointing=400,
-            encoding="linear16",
-            sample_rate=8000,
-        ),
+    # ElevenLabs STT (batch) needs an aiohttp session + SileroVAD at 8kHz
+    from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
+    _el_stt_session = aiohttp.ClientSession()
+    vad = SileroVADProcessor(sample_rate=8000)
+    stt = ElevenLabsSTTService(
+        api_key=os.environ["ELEVENLABS_API_KEY"],
+        aiohttp_session=_el_stt_session,
     )
 
     llm_service = AnthropicLLMService(
         api_key=os.environ["ANTHROPIC_API_KEY"],
-        model="claude-haiku-4-5-20251001",
+        model="claude-opus-4-7",
         enable_prompt_caching=True,
     )
 
@@ -641,6 +636,7 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
 
     pipeline = Pipeline([
         transport.input(),
+        vad,
         stt,
         pair.user(),
         llm_service,
@@ -680,4 +676,7 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner(handle_sigint=False)
-    await runner.run(task)
+    try:
+        await runner.run(task)
+    finally:
+        await _el_stt_session.close()
