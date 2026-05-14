@@ -617,8 +617,12 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
 
     llm_service = AnthropicLLMService(
         api_key=os.environ["ANTHROPIC_API_KEY"],
-        model="claude-opus-4-7",
-        enable_prompt_caching=True,
+        settings=AnthropicLLMService.Settings(
+            model="claude-opus-4-7",
+            system_instruction=SYSTEM_PROMPT,
+            max_tokens=250,
+            enable_prompt_caching=True,
+        ),
     )
 
     tts = ElevenLabsTTSService(
@@ -628,11 +632,8 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
-    context = LLMContext(
-        system=SYSTEM_PROMPT,
-        tools=ToolsSchema(standard_tools=[SAVE_BOOKING_SCHEMA, END_CALL_SCHEMA]),
-    )
-    pair = LLMContextAggregatorPair.create(llm_service, context)
+    context = LLMContext(tools=ToolsSchema(standard_tools=[SAVE_BOOKING_SCHEMA, END_CALL_SCHEMA]))
+    pair = LLMContextAggregatorPair(context)
 
     pipeline = Pipeline([
         transport.input(),
