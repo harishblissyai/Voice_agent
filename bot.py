@@ -625,9 +625,15 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         ),
     )
 
+    _voice_id = (
+        os.environ.get("ELEVENLABS_VOICE_ID")
+        or os.environ.get("ELEVENLABS_VOICE_TA")
+        or os.environ.get("ELEVENLABS_VOICE_EN")
+        or ""
+    )
     tts = ElevenLabsTTSService(
         api_key=os.environ["ELEVENLABS_API_KEY"],
-        voice_id=os.environ.get("ELEVENLABS_VOICE_ID", ""),
+        voice_id=_voice_id,
         model="eleven_turbo_v2_5",
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
