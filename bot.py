@@ -606,7 +606,11 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
-        params=FastAPIWebsocketParams(serializer=serializer),
+        params=FastAPIWebsocketParams(
+            serializer=serializer,
+            audio_out_sample_rate=22050,  # must match ElevenLabs TTS output rate
+            audio_in_sample_rate=8000,    # Twilio sends 8kHz PCM
+        ),
     )
 
     # ElevenLabs STT (batch) — needs SileroVAD at 8kHz to emit speech events
