@@ -601,8 +601,7 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         auth_token=os.environ["TWILIO_AUTH_TOKEN"],
         params=TwilioFrameSerializer.InputParams(
             auto_hang_up=True,
-            # sample_rate=None → serializer uses audio_in_sample_rate=8000 from StartFrame
-            # for Twilio μ-law→PCM (input path). Output path uses frame.sample_rate=22050.
+            sample_rate=16000,  # upsample Twilio 8kHz → 16kHz for Sarvam STT
         ),
     )
     transport = FastAPIWebsocketTransport(
@@ -611,21 +610,27 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
             serializer=serializer,
             audio_in_enabled=True,
             audio_out_enabled=True,
-            audio_out_sample_rate=22050,  # must match ElevenLabs TTS output rate
-            audio_in_sample_rate=8000,    # Twilio sends 8kHz PCM
+            audio_out_sample_rate=22050,  # ElevenLabs TTS output rate
+            audio_in_sample_rate=16000,   # after upsampling from Twilio 8kHz
         ),
     )
 
-    # ElevenLabs STT (batch) — needs SileroVAD at 8kHz to emit speech events
-    from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
-    _el_stt_session = aiohttp.ClientSession()
-    vad = SileroVADProcessor(sample_rate=8000)
-    stt = ElevenLabsSTTService(
-        api_key=os.environ["ELEVENLABS_API_KEY"],
-        aiohttp_session=_el_stt_session,
-        sample_rate=8000,
+    # Sarvam STT — handles Indian languages/Tanglish natively, built-in VAD
+    # Better than ElevenLabs for 8kHz phone audio (upsampled to 16kHz)
+    stt = SarvamSTTService(
+        api_key=os.environ["SARVAM_API_KEY"],
+        mode="codemix",
+        settings=SarvamSTTService.Settings(
+            model="saaras:v3",
+            language=None,
+            vad_signals=True,
+            high_vad_sensitivity=True,
+            positive_speech_threshold=0.5,
+            negative_speech_threshold=0.3,
+            negative_frames_count=3,
+            negative_frames_window=8,
+        ),
     )
-
     llm_service = AnthropicLLMService(
         api_key=os.environ["ANTHROPIC_API_KEY"],
         settings=AnthropicLLMService.Settings(
@@ -659,7 +664,6 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
 
     pipeline = Pipeline([
         transport.input(),
-        vad,
         stt,
         pair.user(),
         llm_service,
@@ -699,8 +703,4 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner(handle_sigint=False)
-    try:
-        await runner.run(task)
-    finally:
-        if _el_stt_session:
-            await _el_stt_session.close()
+    await runner.run(task)
