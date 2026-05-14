@@ -599,7 +599,10 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         call_sid=call_sid,
         account_sid=os.environ["TWILIO_ACCOUNT_SID"],
         auth_token=os.environ["TWILIO_AUTH_TOKEN"],
-        params=TwilioFrameSerializer.InputParams(auto_hang_up=True),
+        params=TwilioFrameSerializer.InputParams(
+            auto_hang_up=True,
+            sample_rate=22050,  # ElevenLabs TTS output rate; serializer resamples to 8kHz μ-law
+        ),
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
@@ -631,6 +634,7 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
     tts = ElevenLabsTTSService(
         api_key=os.environ["ELEVENLABS_API_KEY"],
         auto_mode=True,
+        sample_rate=22050,  # force pcm_22050; avoids pcm_8000 (unsupported by ElevenLabs)
         text_aggregation_mode=TextAggregationMode.SENTENCE,
         settings=ElevenLabsTTSService.Settings(
             model="eleven_turbo_v2_5",
