@@ -802,10 +802,10 @@
 </div>
 
 <script>
-  // Backend URL — empty string = same origin (local dev).
-  // On S3/CloudFront set this to your EC2 CloudFront HTTPS URL, e.g.:
-  //   const BACKEND_URL = 'https://api.blissyai.com';
-  const BACKEND_URL = 'https://www.blissyai.com';
+  // Auto-detect: empty string on localhost (same origin), CloudFront URL in production
+  const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://www.blissyai.com';
 
   const States = { IDLE:'idle', CONNECTING:'connecting', LISTENING:'listening', SPEAKING:'speaking' };
   const STATUS  = { idle:'Tap to call Priya', connecting:'Connecting...', listening:'Listening', speaking:'Priya is speaking...' };
