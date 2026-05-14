@@ -131,8 +131,10 @@ async def health_check():
 @app.post("/api/twilio/incoming")
 @app.post("/twilio/incoming")
 async def twilio_incoming(request: Request):
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    ws_url = f"wss://{host}/api/twilio/stream"
+    # TWILIO_STREAM_HOST overrides auto-detection — set to EC2 public IP/domain
+    # to bypass CloudFront (which may not forward WebSocket connections)
+    stream_host = os.environ.get("TWILIO_STREAM_HOST") or request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    ws_url = f"wss://{stream_host}/api/twilio/stream"
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Response>"
