@@ -30,6 +30,7 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPI
 
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.serializers.twilio import TwilioFrameSerializer
+from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.tts_service import TextAggregationMode
 
@@ -606,13 +607,20 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
         params=FastAPIWebsocketParams(serializer=serializer),
     )
 
-    # ElevenLabs STT (batch) needs an aiohttp session + SileroVAD at 8kHz
-    from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
-    _el_stt_session = aiohttp.ClientSession()
-    vad = SileroVADProcessor(sample_rate=8000)
-    stt = ElevenLabsSTTService(
-        api_key=os.environ["ELEVENLABS_API_KEY"],
-        aiohttp_session=_el_stt_session,
+    # Deepgram streaming STT — handles 8kHz telephony audio natively
+    # encoding + sample_rate are top-level args, not inside Settings
+    _el_stt_session = None
+    vad = None
+    stt = DeepgramSTTService(
+        api_key=os.environ["DEEPGRAM_API_KEY"],
+        encoding="linear16",
+        sample_rate=8000,
+        settings=DeepgramSTTService.Settings(
+            model="nova-3",
+            punctuate=True,
+            interim_results=True,
+            endpointing=400,
+        ),
     )
 
     llm_service = AnthropicLLMService(
@@ -643,7 +651,6 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
 
     pipeline = Pipeline([
         transport.input(),
-        vad,
         stt,
         pair.user(),
         llm_service,
@@ -686,4 +693,5 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
     try:
         await runner.run(task)
     finally:
-        await _el_stt_session.close()
+        if _el_stt_session:
+            await _el_stt_session.close()
