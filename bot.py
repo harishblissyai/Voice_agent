@@ -498,7 +498,7 @@ async def run_bot(webrtc_connection, llm_provider: str = "anthropic", tts_provid
         ])
 
 
-    task = PipelineTask(pipeline, allow_interruptions=True)
+    task = PipelineTask(pipeline)
 
     async def handle_save_booking(params):
         args = params.arguments
