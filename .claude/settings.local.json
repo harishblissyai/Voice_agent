@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python -c \"import pipecat; import os; print\\(os.path.dirname\\(pipecat.__file__\\)\\)\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue })",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\HARISH\\\\AppData\\\\Roaming\\\\Python\\\\Python312\\\\site-packages\\\\pipecat\\\\services\\\\\" -Directory | Select-Object Name)",
+      "Bash(xargs -n1 basename)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; cd \"c:\\\\Blissy_Ai\\\\pipecat\"; pip install \"pipecat-ai[google,groq,cartesia]\" --quiet 2>&1 | Select-Object -Last 5)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Seconds 1; cd \"c:\\\\Blissy_Ai\\\\pipecat\"; python server.py)",
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue; if \\($conn\\) { Stop-Process -Id $conn.OwningProcess -Force; Write-Host \"Killed PID $\\($conn.OwningProcess\\)\" } else { Write-Host \"Port 8000 is free\" })",
+      "PowerShell(netstat -ano)",
+      "PowerShell(Invoke-RestMethod http://localhost:8000/health)",
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; if \\($conn\\) { Stop-Process -Id $conn.OwningProcess -Force; Write-Host \"Killed\" } else { Write-Host \"Free\" })",
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; if \\($conn\\) { Stop-Process -Id $conn.OwningProcess -Force }; Start-Sleep 1; cd C:\\\\Blissy_Ai\\\\pipecat; python server.py)"
+    ]
+  }
+}

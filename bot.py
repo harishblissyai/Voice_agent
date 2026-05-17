@@ -30,6 +30,7 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPI
 
 # ── TTS services ─────────────────────────────────────────────────────────────
 from pipecat.serializers.twilio import TwilioFrameSerializer
+from pipecat.serializers.plivo import PlivoFrameSerializer
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.tts_service import TextAggregationMode
 
@@ -679,6 +680,123 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
 
     async def handle_end_call(params):
         logger.info("end_call triggered (Twilio)")
+        if transcript is not None:
+            transcript.append({"role": "system", "text": "Call ended"})
+        await params.result_callback("Call ended.")
+        async def _delayed_end():
+            await asyncio.sleep(6)
+            await task.cancel()
+        asyncio.create_task(_delayed_end())
+
+    llm_service.register_function("save_booking", handle_save_booking)
+    llm_service.register_function("end_call", handle_end_call)
+
+    @transport.event_handler("on_client_connected")
+    async def on_client_connected(transport, connection):
+        greeting = "வணக்கம்! Blissy Restaurant-க்கு வருக. நான் Priya — table booking-க்கு எப்படி help பண்ணட்டும் sir?"
+        if transcript is not None:
+            transcript.append({"role": "priya", "text": greeting})
+        await asyncio.sleep(0.5)
+        await task.queue_frame(TTSSpeakFrame(greeting))
+
+    @transport.event_handler("on_client_disconnected")
+    async def on_client_disconnected(transport, connection):
+        await task.queue_frame(EndFrame())
+
+    runner = PipelineRunner(handle_sigint=False)
+    await runner.run(task)
+
+
+# ── Plivo phone-call entry point ──────────────────────────────────────────────
+
+async def run_bot_plivo(websocket, stream_id: str, call_id: str, transcript: deque = None):
+    logger.info(f"Plivo call started — stream_id={stream_id} call_id={call_id}")
+    if transcript is not None:
+        transcript.append({"role": "system", "text": f"Phone call started | stream_id={stream_id}"})
+
+    serializer = PlivoFrameSerializer(
+        stream_id=stream_id,
+        call_id=call_id,
+        auth_id=os.environ["PLIVO_AUTH_ID"],
+        auth_token=os.environ["PLIVO_AUTH_TOKEN"],
+        params=PlivoFrameSerializer.InputParams(
+            auto_hang_up=True,
+            sample_rate=16000,  # upsample Plivo 8kHz → 16kHz for Sarvam STT
+        ),
+    )
+    transport = FastAPIWebsocketTransport(
+        websocket=websocket,
+        params=FastAPIWebsocketParams(
+            serializer=serializer,
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+            audio_out_sample_rate=22050,
+            audio_in_sample_rate=16000,
+        ),
+    )
+
+    stt = SarvamSTTService(
+        api_key=os.environ["SARVAM_API_KEY"],
+        mode="codemix",
+        settings=SarvamSTTService.Settings(
+            model="saaras:v3",
+            language=None,
+            vad_signals=True,
+            high_vad_sensitivity=True,
+            positive_speech_threshold=0.5,
+            negative_speech_threshold=0.3,
+            negative_frames_count=3,
+            negative_frames_window=8,
+        ),
+    )
+    llm_service = AnthropicLLMService(
+        api_key=os.environ["ANTHROPIC_API_KEY"],
+        settings=AnthropicLLMService.Settings(
+            model="claude-opus-4-7",
+            system_instruction=SYSTEM_PROMPT,
+            max_tokens=250,
+            enable_prompt_caching=True,
+        ),
+    )
+
+    _voice_id = os.environ.get("ELEVENLABS_VOICE_TA") or os.environ.get("ELEVENLABS_VOICE_EN") or ""
+    logger.info(f"Plivo TTS voice_id={_voice_id!r}")
+    tts = ElevenLabsTTSService(
+        api_key=os.environ["ELEVENLABS_API_KEY"],
+        auto_mode=True,
+        sample_rate=22050,
+        text_aggregation_mode=TextAggregationMode.SENTENCE,
+        settings=ElevenLabsTTSService.Settings(
+            model="eleven_flash_v2_5",
+            voice=_voice_id,
+            stability=0.5,
+            similarity_boost=0.8,
+            style=0.0,
+            speed=1.0,
+            apply_text_normalization="off",
+        ),
+    )
+
+    context = LLMContext(tools=ToolsSchema(standard_tools=[SAVE_BOOKING_SCHEMA, END_CALL_SCHEMA]))
+    pair = LLMContextAggregatorPair(context)
+
+    pipeline = Pipeline([
+        transport.input(),
+        stt,
+        pair.user(),
+        llm_service,
+        tts,
+        transport.output(),
+        pair.assistant(),
+    ])
+    task = PipelineTask(pipeline)
+
+    async def handle_save_booking(params):
+        await _save_booking_impl(params.arguments, transcript)
+        await params.result_callback("Booking saved successfully. Now speak the confirmation line to the caller with all four details. Do NOT call end_call yet — wait for the caller to respond.")
+
+    async def handle_end_call(params):
+        logger.info("end_call triggered (Plivo)")
         if transcript is not None:
             transcript.append({"role": "system", "text": "Call ended"})
         await params.result_callback("Call ended.")

@@ -32,7 +32,7 @@ from pipecat.transports.smallwebrtc.request_handler import (
     SmallWebRTCRequestHandler,
 )
 
-from bot import run_bot, run_bot_twilio
+from bot import run_bot, run_bot_twilio, run_bot_plivo
 
 load_dotenv()
 
@@ -162,6 +162,43 @@ async def twilio_stream(websocket: WebSocket):
         await websocket.close()
         return
     await run_bot_twilio(websocket, stream_sid, call_sid, transcript=transcript)
+
+
+# ── Plivo phone-call routes ────────────────────────────────────────────────────
+
+@app.post("/api/plivo/incoming")
+@app.post("/plivo/incoming")
+async def plivo_incoming(request: Request):
+    stream_host = os.environ.get("PLIVO_STREAM_HOST") or request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    ws_url = f"wss://{stream_host}/api/plivo/stream"
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        f'<Stream keepCallAlive="true" contentType="audio/x-mulaw;rate=8000" bidirectional="true">{ws_url}</Stream>'
+        "</Response>"
+    )
+    return PlainResponse(content=xml, media_type="text/xml")
+
+
+@app.websocket("/api/plivo/stream")
+@app.websocket("/plivo/stream")
+async def plivo_stream(websocket: WebSocket):
+    await websocket.accept()
+    stream_id = None
+    call_id = None
+    async for raw in websocket.iter_text():
+        msg = json.loads(raw)
+        if msg.get("event") == "start":
+            start = msg.get("start", {})
+            stream_id = start.get("streamId") or msg.get("streamId")
+            call_id   = start.get("callId")   or msg.get("callId")
+            break
+        if msg.get("event") not in ("connected",):
+            break
+    if not stream_id:
+        await websocket.close()
+        return
+    await run_bot_plivo(websocket, stream_id, call_id, transcript=transcript)
 
 
 if __name__ == "__main__":

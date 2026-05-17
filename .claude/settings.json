@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" status)",
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" diff --stat HEAD)",
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" add bot.py server.py requirements.txt \"My workflow 6.json\")",
+      "Bash(git -C c:/Blissy_Ai/pipecat commit -m ' *)",
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" push)",
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" add server.py)",
+      "Bash(git -C \"c:/Blissy_Ai/pipecat\" add bot.py)"
+    ]
+  }
+}
