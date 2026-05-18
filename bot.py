@@ -379,7 +379,7 @@ def _make_llm(provider: str):
         svc = GoogleLLMService(
             api_key=os.environ["GOOGLE_API_KEY"],
             settings=GoogleLLMSettings(
-                model="gemini-2.5-flash",
+                model="gemini-2.0-flash",
                 system_instruction=SYSTEM_PROMPT,
                 max_tokens=250,
                 temperature=0.7,
