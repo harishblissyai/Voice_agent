@@ -1,5 +1,5 @@
 # Pipecat with all service extras
-pipecat-ai[webrtc,elevenlabs,anthropic,sarvam,deepgram]>=1.1.0
+pipecat-ai[webrtc,elevenlabs,anthropic,sarvam,deepgram,google]>=1.1.0
 twilio>=9.0.0
 plivo>=4.0.0
 
