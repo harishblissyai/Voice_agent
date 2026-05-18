@@ -778,7 +778,7 @@ async def run_bot_plivo(websocket, stream_id: str, call_id: str, transcript: deq
     llm_service = GoogleLLMService(
         api_key=os.environ["GOOGLE_API_KEY"],
         settings=GoogleLLMSettings(
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
             system_instruction=SYSTEM_PROMPT,
             max_tokens=250,
             temperature=0.7,
