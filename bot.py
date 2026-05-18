@@ -25,6 +25,7 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.services.groq.llm import GroqLLMService, GroqLLMSettings
+from pipecat.services.google.llm import GoogleLLMService, GoogleLLMSettings
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
@@ -370,6 +371,18 @@ def _make_llm(provider: str):
                 system_instruction=SYSTEM_PROMPT,
                 max_tokens=250,
                 enable_prompt_caching=True,
+            ),
+        )
+        return svc, False
+
+    elif provider == "gemini":
+        svc = GoogleLLMService(
+            api_key=os.environ["GOOGLE_API_KEY"],
+            settings=GoogleLLMSettings(
+                model="gemini-2.5-flash",
+                system_instruction=SYSTEM_PROMPT,
+                max_tokens=250,
+                temperature=0.7,
             ),
         )
         return svc, False
