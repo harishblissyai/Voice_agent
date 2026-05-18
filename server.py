@@ -201,6 +201,44 @@ async def plivo_stream(websocket: WebSocket):
     await run_bot_plivo(websocket, stream_id, call_id, transcript=transcript)
 
 
+# ── Plivo call-me-back (outbound call trigger) ────────────────────────────────
+
+@app.get("/callme")
+async def serve_callme():
+    return FileResponse("static/callme.html")
+
+
+@app.post("/api/call-me")
+async def call_me(request: Request):
+    body = await request.json()
+    to_number = body.get("phone", "").strip()
+    if not to_number:
+        return JSONResponse({"error": "phone number required"}, status_code=400)
+
+    auth_id     = os.environ.get("PLIVO_AUTH_ID", "")
+    auth_token  = os.environ.get("PLIVO_AUTH_TOKEN", "")
+    from_number = os.environ.get("PLIVO_FROM_NUMBER", "")
+    answer_url  = os.environ.get("PLIVO_ANSWER_URL", "https://www.blissyai.com/api/plivo/incoming")
+
+    if not all([auth_id, auth_token, from_number]):
+        return JSONResponse({"error": "PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN, PLIVO_FROM_NUMBER not set"}, status_code=500)
+
+    try:
+        import plivo
+        client = plivo.RestClient(auth_id, auth_token)
+        response = client.calls.create(
+            from_=from_number,
+            to_=to_number,
+            answer_url=answer_url,
+            answer_method="POST",
+        )
+        logger.info(f"Plivo outbound call triggered → {to_number} | call_uuid={response.request_uuid}")
+        return JSONResponse({"status": "calling", "to": to_number, "call_uuid": response.request_uuid})
+    except Exception as e:
+        logger.error(f"Plivo call-me failed: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "server:app",

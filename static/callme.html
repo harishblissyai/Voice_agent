@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blissy — Call Me Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+    .logo { font-size: 32px; margin-bottom: 8px; }
+    h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    p { font-size: 14px; color: #888; margin-bottom: 28px; }
+    label { display: block; text-align: left; font-size: 13px; color: #aaa; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #111;
+      color: #f0f0f0;
+      font-size: 16px;
+      outline: none;
+      margin-bottom: 16px;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: #6c47ff; }
+    button {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background: #6c47ff;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover { background: #5a38e0; }
+    button:active { transform: scale(0.98); }
+    button:disabled { background: #444; cursor: not-allowed; }
+    .status {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.success { background: #0d2b1e; color: #4ade80; border: 1px solid #166534; }
+    .status.error   { background: #2b0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .note { font-size: 12px; color: #555; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">📞</div>
+    <h1>Talk to Priya</h1>
+    <p>Enter your phone number and Priya will call you right away.</p>
+
+    <label for="phone">Phone Number (with country code)</label>
+    <input
+      type="tel"
+      id="phone"
+      placeholder="+91 98765 43210"
+      value=""
+    />
+
+    <button id="callBtn" onclick="triggerCall()">Call Me Now</button>
+
+    <div class="status" id="status"></div>
+    <p class="note">⚠️ Make sure PLIVO_FROM_NUMBER is set in .env</p>
+  </div>
+
+  <script>
+    async function triggerCall() {
+      const phone = document.getElementById('phone').value.trim().replace(/\s+/g, '');
+      const btn = document.getElementById('callBtn');
+      const status = document.getElementById('status');
+
+      if (!phone) {
+        showStatus('Please enter a phone number.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Calling...';
+      status.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/call-me', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          showStatus(`✅ Priya is calling ${phone} now! Pick up your phone.`, 'success');
+          btn.textContent = '📲 Call Initiated';
+        } else {
+          showStatus(`❌ Error: ${data.error}`, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Call Me Now';
+        }
+      } catch (err) {
+        showStatus(`❌ Network error: ${err.message}`, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Call Me Now';
+      }
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = `status ${type}`;
+      el.style.display = 'block';
+    }
+
+    document.getElementById('phone').addEventListener('keydown', e => {
+      if (e.key === 'Enter') triggerCall();
+    });
+  </script>
+</body>
+</html>

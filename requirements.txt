@@ -1,6 +1,7 @@
 # Pipecat with all service extras
 pipecat-ai[webrtc,elevenlabs,anthropic,sarvam,deepgram]>=1.1.0
 twilio>=9.0.0
+plivo>=4.0.0
 
 # Web server
 fastapi>=0.115.0

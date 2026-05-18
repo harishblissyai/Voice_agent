@@ -24,6 +24,7 @@ from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.services.anthropic.llm import AnthropicLLMService
+from pipecat.services.groq.llm import GroqLLMService, GroqLLMSettings
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
@@ -373,6 +374,18 @@ def _make_llm(provider: str):
         )
         return svc, False
 
+    elif provider == "groq":
+        svc = GroqLLMService(
+            api_key=os.environ["GROQ_API_KEY"],
+            settings=GroqLLMSettings(
+                model="llama-3.3-70b-versatile",
+                system_instruction=SYSTEM_PROMPT,
+                max_tokens=250,
+                temperature=0.7,
+            ),
+        )
+        return svc, False
+
     else:  # default: anthropic haiku
         svc = AnthropicLLMService(
             api_key=os.environ["ANTHROPIC_API_KEY"],
@@ -632,13 +645,13 @@ async def run_bot_twilio(websocket, stream_sid: str, call_sid: str, transcript: 
             negative_frames_window=8,
         ),
     )
-    llm_service = AnthropicLLMService(
-        api_key=os.environ["ANTHROPIC_API_KEY"],
-        settings=AnthropicLLMService.Settings(
-            model="claude-opus-4-7",
+    llm_service = GroqLLMService(
+        api_key=os.environ["GROQ_API_KEY"],
+        settings=GroqLLMSettings(
+            model="llama-3.3-70b-versatile",
             system_instruction=SYSTEM_PROMPT,
             max_tokens=250,
-            enable_prompt_caching=True,
+            temperature=0.7,
         ),
     )
 
@@ -721,7 +734,7 @@ async def run_bot_plivo(websocket, stream_id: str, call_id: str, transcript: deq
         auth_token=os.environ["PLIVO_AUTH_TOKEN"],
         params=PlivoFrameSerializer.InputParams(
             auto_hang_up=True,
-            sample_rate=16000,  # upsample Plivo 8kHz → 16kHz for Sarvam STT
+            sample_rate=16000,
         ),
     )
     transport = FastAPIWebsocketTransport(
@@ -749,13 +762,13 @@ async def run_bot_plivo(websocket, stream_id: str, call_id: str, transcript: deq
             negative_frames_window=8,
         ),
     )
-    llm_service = AnthropicLLMService(
-        api_key=os.environ["ANTHROPIC_API_KEY"],
-        settings=AnthropicLLMService.Settings(
-            model="claude-opus-4-7",
+    llm_service = GroqLLMService(
+        api_key=os.environ["GROQ_API_KEY"],
+        settings=GroqLLMSettings(
+            model="llama-3.3-70b-versatile",
             system_instruction=SYSTEM_PROMPT,
             max_tokens=250,
-            enable_prompt_caching=True,
+            temperature=0.7,
         ),
     )
 
